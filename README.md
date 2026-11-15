@@ -16,7 +16,7 @@ In this repository's **Settings > Pages**, select **Deploy from a branch**, bran
 
 ## Refresh the Rust trace
 
-Run this from the `blocklace` repository after changing its simulation trace exporter. Set `TRACE_SITE_DIR` to wherever you cloned this visualizer:
+Run this from the `cordial-f1r3node` repository after changing its simulation trace exporter. Set `TRACE_SITE_DIR` to wherever you cloned this visualizer:
 
 ```sh
 cargo run -p cordial-miners-core --bin export_four_node_trace
