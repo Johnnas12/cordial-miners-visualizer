@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cordial Miners — 02. Cordial Dissemination & Closed Blocklace</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --surface: #111827;
+      --surface-alt: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --genesis: #a855f7;
+      --delayed: #f59e0b;
+      --buffered: #f43f5e;
+      --rescued: #10b981;
+      --quorum: #3b82f6;
+      --neutral: #64748b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1360px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Top Nav */
+    .top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 0.85rem;
+    }
+
+    .top-nav a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .top-nav a:hover { text-decoration: underline; }
+
+    /* Header */
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .module-tag {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    h1 { font-size: 1.42rem; font-weight: 700; letter-spacing: -0.02em; }
+    .subtitle { color: var(--muted); font-size: 0.91rem; margin-top: 2px; }
+
+    .params-badge {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: var(--accent);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    /* Stepper */
+    .control-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .control-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .step-counter {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--delayed);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: block;
+    }
+
+    .step-title { font-size: 1.08rem; font-weight: 700; }
+
+    .btn-group { display: flex; gap: 10px; }
+
+    button {
+      background: var(--surface-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+    button.primary {
+      background: var(--accent);
+      color: #0b1120;
+      border-color: var(--accent);
+    }
+
+    button.primary:hover:not(:disabled) { background: #7dd3fc; color: #0b1120; }
+    button:disabled { opacity: 0.38; cursor: not-allowed; }
+
+    .step-pills {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+
+    .step-pill {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .step-pill.done {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: rgba(56, 189, 248, 0.06);
+    }
+
+    .step-pill.active {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.18);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .step-pill span { display: block; }
+    .step-pill .r-tag { font-size: 0.72rem; font-weight: 700; color: var(--accent); }
+    .step-pill .r-name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      padding: 2px 4px;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .line-solid { width: 20px; border-top: 2.5px solid var(--accent); display: inline-block; }
+    .line-dashed { width: 20px; border-top: 2px dashed var(--genesis); display: inline-block; }
+    .line-rescue { width: 20px; border-top: 2.5px solid var(--rescued); display: inline-block; }
+
+    /* DAG Canvas */
+    .dag-viewport {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow-x: auto;
+      padding: 10px;
+    }
+
+    svg {
+      display: block;
+      width: 1240px;
+      height: 540px;
+    }
+
+    .lane-band { fill: rgba(30, 41, 59, 0.35); rx: 10; }
+
+    .edge {
+      fill: none;
+      stroke: #475569;
+      stroke-width: 1.6;
+      opacity: 0.3;
+      transition: opacity 0.15s ease, stroke 0.15s ease, stroke-width 0.15s ease;
+    }
+
+    .edge.rescue-default {
+      stroke: var(--rescued);
+      stroke-width: 2.2;
+      opacity: 0.75;
+    }
+
+    .edge.buffered-edge {
+      stroke: var(--buffered);
+      stroke-width: 1.8;
+      stroke-dasharray: 4 4;
+      opacity: 0.7;
+    }
+
+    .edge.direct { stroke: var(--accent); stroke-width: 3.2; opacity: 1; }
+    .edge.transitive { stroke: var(--genesis); stroke-width: 2.2; stroke-dasharray: 6 4; opacity: 0.92; }
+    .edge.dimmed { opacity: 0.06; }
+
+    .node-group { cursor: pointer; transition: opacity 0.15s ease; }
+    .node-group.dimmed { opacity: 0.2; }
+    .node-card { rx: 10; ry: 10; stroke-width: 2; transition: filter 0.15s ease; }
+    .node-card.dashed-border { stroke-dasharray: 5 3; }
+
+    .node-group:hover .node-card,
+    .node-group.hovered .node-card {
+      filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.75));
+    }
+
+    /* Miner 1 Local State Inspector (Closed Blocklace vs Buffer vs Tips) */
+    .state-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .state-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .state-card h4 {
+      font-size: 0.84rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chip-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 30px;
+      align-items: center;
+    }
+
+    .state-chip {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 6px;
+    }
+
+    .chip-closed {
+      background: rgba(59, 130, 246, 0.16);
+      border: 1px solid rgba(59, 130, 246, 0.45);
+      color: #93c5fd;
+    }
+
+    .chip-buffer {
+      background: rgba(244, 63, 94, 0.16);
+      border: 1px solid rgba(244, 63, 94, 0.5);
+      color: #fda4af;
+    }
+
+    .chip-tip {
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(16, 185, 129, 0.5);
+      color: #6ee7b7;
+    }
+
+    .empty-note { font-size: 0.8rem; color: var(--muted); font-style: italic; }
+
+    /* Bottom Inspector */
+    .inspector {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 22px;
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 920px) {
+      .inspector, .state-grid { grid-template-columns: 1fr; }
+      .step-pills { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .inspector h3 { font-size: 1.04rem; color: var(--accent); margin-bottom: 6px; }
+    .inspector p { font-size: 0.92rem; color: #e2e8f0; }
+
+    .details-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 0.85rem;
+    }
+
+    .details-box strong { color: var(--muted); display: inline-block; min-width: 175px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a href="index.html">← All Modules</a>
+      <span style="color:#94a3b8; font-weight:600;">Module 02 of 03 · Section 3: Cordial Dissemination</span>
+      <a href="module_1.html">← Module 01: Finality</a>
+    </nav>
+
+    <header>
+      <div>
+        <span class="module-tag">Module 02 · Paper Section 3: Cordial Dissemination</span>
+        <h1>Closed Blocklace, Out-of-Order Buffering & Unreferenced Tip Rescue</h1>
+        <p class="subtitle">See how miners advance on a &gt;(n+f)/2 quorum without stalling, buffer blocks with missing ancestors, and sweep late tips into tips(B).</p>
+      </div>
+      <span class="params-badge">n = 4 · f = 1 · Quorum &gt; (n+f)/2 = 3 · Closed DAG Invariant</span>
+    </header>
+
+    <section class="control-panel">
+      <div class="control-header">
+        <div>
+          <span class="step-counter" id="stepCounter">Step 0 of 4</span>
+          <h2 class="step-title" id="stepTitle">Step 0: Initial Closed Blocklace B₁ = { b₀ }</h2>
+        </div>
+        <div class="btn-group">
+          <button id="prevBtn">← Previous</button>
+          <button id="nextBtn" class="primary">Next Step →</button>
+        </div>
+      </div>
+      <div class="step-pills" id="stepPills"></div>
+    </section>
+
+    <div class="legend">
+      <span class="legend-item"><i class="dot" style="background:var(--genesis)"></i>Genesis (b₀)</span>
+      <span class="legend-item"><i class="dot" style="background:var(--quorum)"></i>In Closed Blocklace B₁</span>
+      <span class="legend-item"><i class="dot" style="background:var(--delayed)"></i>Delayed in Transit</span>
+      <span class="legend-item"><i class="dot" style="background:var(--buffered)"></i>Buffered (Missing Ancestor)</span>
+      <span class="legend-item"><i class="dot" style="background:var(--rescued)"></i>Tip Rescue Block</span>
+      <span class="legend-item"><i class="line-rescue"></i>Tip Catch-Up Pointer</span>
+      <span class="legend-item"><i class="line-solid"></i>Hover: Direct Pointer (Ack)</span>
+      <span class="legend-item"><i class="line-dashed"></i>Hover: Causal Cone (Obs)</span>
+    </div>
+
+    <div class="dag-viewport" id="dagViewport">
+      <svg id="dagSvg" viewBox="0 0 1240 540"></svg>
+    </div>
+
+    <!-- Live Miner 1 Local Data Structures (Section 3 of Paper) -->
+    <section class="state-grid">
+      <div class="state-card">
+        <h4 style="color:#93c5fd;">Miner 1 Closed Blocklace B₁ <span style="font-size:0.72rem; color:var(--muted);">Invariant: pointers(b) ⊆ B₁</span></h4>
+        <div class="chip-wrap" id="closedChips"></div>
+      </div>
+      <div class="state-card">
+        <h4 style="color:#fda4af;">Miner 1 Pending Buffer <span style="font-size:0.72rem; color:var(--muted);">Awaiting missing ancestors</span></h4>
+        <div class="chip-wrap" id="bufferChips"></div>
+      </div>
+      <div class="state-card">
+        <h4 style="color:#6ee7b7;">Maximal Blocks · tips(B₁) <span style="font-size:0.72rem; color:var(--muted);">Next block's pointers</span></h4>
+        <div class="chip-wrap" id="tipsChips"></div>
+      </div>
+    </section>
+
+    <section class="inspector">
+      <div>
+        <h3 id="inspTitle">Section 3 Protocol Mechanics (Hover any block to inspect pointers)</h3>
+        <p id="inspDesc"></p>
+      </div>
+      <div class="details-box">
+        <div><strong>Cordial Advance Rule:</strong> <span>Wait for &gt;(n+f)/2 = 3 miners in round r</span></div>
+        <div><strong>Closed Blocklace Rule:</strong> <span>Never admit b until pointers(b) ⊆ B</span></div>
+        <div><strong>Direct Pointers (Ack):</strong> <span id="inspParents">Hover a block</span></div>
+        <div><strong>Causal Cone (Obs):</strong> <span id="inspAncestors">Hover a block</span></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const COLORS = {
+      genesis: "#a855f7",
+      quorum: "#3b82f6",
+      delayed: "#f59e0b",
+      buffered: "#f43f5e",
+      rescued: "#10b981",
+      neutral: "#64748b"
+    };
+
+    const ROUNDS = [
+      "R0 · Genesis",
+      "R1 · M4 Delayed",
+      "R2 · Quorum Advances",
+      "R3 · Out-of-Order Arrival",
+      "R4 · Unbuffer & Tip Rescue"
+    ];
+
+    const STEPS = [
+      {
+        pillTag: "Step 0",
+        pillName: "Closed Init {b₀}",
+        title: "Step 0: Miner 1 Initializes Closed Blocklace B₁ = { b₀ }",
+        desc: "Every miner starts with B = {b₀}. Since b₀ has no parents (pointers(b₀) = ∅), B₁ is trivially closed and tips(B₁) = {b₀}.",
+        closed: ["b₀"],
+        buffer: [],
+        tips: ["b₀"]
+      },
+      {
+        pillTag: "Step 1",
+        pillName: "R1 & M4 Delay",
+        title: "Step 1: Round 1 Broadcasts — M4·R1 Delayed in Network",
+        desc: "All four miners create Round 1 blocks pointing to b₀. M1·R1, M2·R1, and M3·R1 reach Miner 1 promptly (3/4 > (n+f)/2), while M4·R1 is delayed in transit.",
+        closed: ["b₀", "M1·R1", "M2·R1", "M3·R1"],
+        buffer: [],
+        tips: ["M1·R1", "M2·R1", "M3·R1"]
+      },
+      {
+        pillTag: "Step 2",
+        pillName: "Cordial Quorum",
+        title: "Step 2: Cordial Advance — Round 2 Created Without Waiting for M4",
+        desc: "Because a cordial miner only waits for >(n+f)/2 = 3 distinct miners in Round 1, M1, M2, and M3 immediately create Round 2 blocks pointing to tips(B) = {M1·R1, M2·R1, M3·R1}. Meanwhile, M4 (having received M2·R1, M3·R1, and its own M4·R1) creates M4·R2.",
+        closed: ["b₀", "M1·R1", "M2·R1", "M3·R1", "M1·R2", "M2·R2", "M3·R2"],
+        buffer: [],
+        tips: ["M1·R2", "M2·R2", "M3·R2"]
+      },
+      {
+        pillTag: "Step 3",
+        pillName: "Buffer M4·R2",
+        title: "Step 3: Out-of-Order Arrival — Miner 1 Buffers M4·R2 & Sends Nak",
+        desc: "M4·R2 arrives at Miner 1 BEFORE its parent M4·R1! To preserve the Closed Blocklace Invariant (pointers(b) ⊆ B₁), Miner 1 does NOT add M4·R2 to B₁ yet—it places M4·R2 into its Pending Buffer and requests missing ancestor M4·R1 (Nak).",
+        closed: ["b₀", "M1·R1", "M2·R1", "M3·R1", "M1·R2", "M2·R2", "M3·R2"],
+        buffer: ["M4·R2 (needs M4·R1)"],
+        tips: ["M1·R2", "M2·R2", "M3·R2"]
+      },
+      {
+        pillTag: "Step 4",
+        pillName: "Unbuffer & Rescue",
+        title: "Step 4: M4·R1 Arrives → Unbuffers M4·R2 & Sweeps All Tips into M1·R3!",
+        desc: "Delayed M4·R1 finally arrives! Miner 1 admits M4·R1 into B₁, which satisfies pointers(M4·R2) ⊆ B₁ and immediately unbuffers M4·R2! Next, Miner 1 creates M1·R3 pointing to ALL maximal blocks in tips(B₁) = {M1·R2, M2·R2, M3·R2, M4·R2}—bringing M4·R1 and M4·R2 cleanly into Round 3's causal cone!",
+        closed: ["b₀", "M1·R1", "M2·R1", "M3·R1", "M4·R1", "M1·R2", "M2·R2", "M3·R2", "M4·R2", "M1·R3"],
+        buffer: [],
+        tips: ["M1·R3"]
+      }
+    ];
+
+    function getNodesForStep(step) {
+      return [
+        {
+          id: "b0", minStep: 0, col: 0, miner: 1.5, code: "Genesis b₀",
+          role: "Closed Root", type: "genesis", parents: [],
+          desc: "Deterministic Genesis root b₀. Always in B₁."
+        },
+        // Round 1
+        {
+          id: "m1_r1", minStep: 1, col: 1, miner: 0, code: "M1 · R1",
+          role: "In B₁ (Quorum 1/3)", type: "quorum", parents: ["b0"],
+          desc: "Miner 1's Round 1 block pointing to b₀."
+        },
+        {
+          id: "m2_r1", minStep: 1, col: 1, miner: 1, code: "M2 · R1",
+          role: "In B₁ (Quorum 2/3)", type: "quorum", parents: ["b0"],
+          desc: "Delivered promptly to Miner 1 in Round 1."
+        },
+        {
+          id: "m3_r1", minStep: 1, col: 1, miner: 2, code: "M3 · R1",
+          role: "In B₁ (Quorum 3/3)", type: "quorum", parents: ["b0"],
+          desc: "Completes the >(n+f)/2 = 3 quorum in Round 1 so Miner 1 can advance without stalling."
+        },
+        {
+          id: "m4_r1", minStep: 1, col: 1, miner: 3,
+          code: "M4 · R1",
+          role: step < 4 ? "Delayed in Transit" : "Arrived → Unblocked!",
+          type: step < 4 ? "delayed" : "rescued",
+          dashed: step < 4,
+          parents: ["b0"],
+          desc: step < 4
+            ? "Delayed in the network! Miner 1 does not stall waiting for M4·R1 because it already has 3/4 Round 1 blocks."
+            : "Arrived at Step 4! Admitting M4·R1 into B₁ satisfies pointers(M4·R2) ⊆ B₁ and unblocks buffered M4·R2."
+        },
+        // Round 2
+        {
+          id: "m1_r2", minStep: 2, col: 2, miner: 0, code: "M1 · R2",
+          role: "In B₁ (Cordial R2)", type: "quorum", parents: ["m1_r1", "m2_r1", "m3_r1"],
+          desc: "Created as soon as 3/4 Round 1 blocks arrived; points to tips(B₁) = {M1·R1, M2·R1, M3·R1}."
+        },
+        {
+          id: "m2_r2", minStep: 2, col: 2, miner: 1, code: "M2 · R2",
+          role: "In B₁ (Cordial R2)", type: "quorum", parents: ["m1_r1", "m2_r1", "m3_r1"],
+          desc: "Miner 2's Round 2 block pointing to its 3 Round 1 tips."
+        },
+        {
+          id: "m3_r2", minStep: 2, col: 2, miner: 2, code: "M3 · R2",
+          role: "In B₁ (Cordial R2)", type: "quorum", parents: ["m1_r1", "m2_r1", "m3_r1"],
+          desc: "Miner 3's Round 2 block pointing to its 3 Round 1 tips."
+        },
+        {
+          id: "m4_r2", minStep: 3, col: 2, miner: 3,
+          code: "M4 · R2",
+          role: step === 3 ? "Buffered (Missing M4·R1)" : "Unbuffered → In B₁",
+          type: step === 3 ? "buffered" : "rescued",
+          dashed: step === 3,
+          parents: ["m2_r1", "m3_r1", "m4_r1"],
+          desc: step === 3
+            ? "Arrived out-of-order at Miner 1! Held in Pending Buffer because parent M4·R1 is not in B₁ yet (Closed Blocklace Invariant)."
+            : "Unbuffered immediately when M4·R1 arrived, becoming a maximal tip in tips(B₁)!"
+        },
+        // Round 3 (Step 4)
+        {
+          id: "m1_r3", minStep: 4, col: 3, miner: 0, code: "M1 · R3",
+          role: "Points to All tips(B₁)", type: "rescued",
+          parents: ["m1_r2", "m2_r2", "m3_r2", "m4_r2"],
+          desc: "Created after M4·R1 and M4·R2 entered B₁. Points to ALL 4 maximal tips {M1·R2, M2·R2, M3·R2, M4·R2}, transitively observing delayed M4·R1!"
+        }
+      ].filter(n => n.minStep <= step);
+    }
+
+    let currentStep = 0;
+    let hoveredId = null;
+
+    const svg = document.getElementById("dagSvg");
+    const pillsEl = document.getElementById("stepPills");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+
+    function getAncestors(id, map, set = new Set()) {
+      const node = map.get(id);
+      if (!node) return set;
+      for (const pid of node.parents) {
+        if (!set.has(pid)) {
+          set.add(pid);
+          getAncestors(pid, map, set);
+        }
+      }
+      return set;
+    }
+
+    function renderStateCards() {
+      const s = STEPS[currentStep];
+      const closedEl = document.getElementById("closedChips");
+      const bufferEl = document.getElementById("bufferChips");
+      const tipsEl = document.getElementById("tipsChips");
+
+      closedEl.innerHTML = s.closed.map(c => `<span class="state-chip chip-closed">${c}</span>`).join("");
+      bufferEl.innerHTML = s.buffer.length
+        ? s.buffer.map(b => `<span class="state-chip chip-buffer">${b}</span>`).join("")
+        : `<span class="empty-note">Empty — all pointers satisfied</span>`;
+      tipsEl.innerHTML = s.tips.map(t => `<span class="state-chip chip-tip">${t}</span>`).join("");
+    }
+
+    function renderControls() {
+      const s = STEPS[currentStep];
+      document.getElementById("stepCounter").textContent = `Step ${currentStep} of ${STEPS.length - 1}`;
+      document.getElementById("stepTitle").textContent = s.title;
+      document.getElementById("inspDesc").textContent = s.desc;
+
+      prevBtn.disabled = currentStep === 0;
+      nextBtn.disabled = currentStep === STEPS.length - 1;
+
+      pillsEl.innerHTML = "";
+      STEPS.forEach((step, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "step-pill" + (idx === currentStep ? " active" : idx < currentStep ? " done" : "");
+        btn.innerHTML = `<span class="r-tag">${step.pillTag}</span><span class="r-name">${step.pillName}</span>`;
+        btn.onclick = () => {
+          currentStep = idx;
+          hoveredId = null;
+          render();
+        };
+        pillsEl.appendChild(btn);
+      });
+    }
+
+    function renderDAG() {
+      svg.innerHTML = "";
+
+      const leftPad = 155;
+      const colGap = 290;
+      const topPad = 95;
+      const laneHeight = 110;
+      const boxW = 156;
+      const boxH = 52;
+
+      // Miner swimlanes
+      for (let m = 0; m < 4; m++) {
+        const y = topPad + m * laneHeight;
+        const lane = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        lane.setAttribute("x", 12);
+        lane.setAttribute("y", y - 44);
+        lane.setAttribute("width", 1216);
+        lane.setAttribute("height", 88);
+        lane.setAttribute("class", "lane-band");
+        svg.appendChild(lane);
+
+        const mLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        mLabel.setAttribute("x", 26);
+        mLabel.setAttribute("y", y + 4);
+        mLabel.setAttribute("fill", m === 3 ? "#fbbf24" : "#94a3b8");
+        mLabel.setAttribute("font-size", "13");
+        mLabel.setAttribute("font-weight", "700");
+        mLabel.textContent = m === 3 ? "Miner 4 (Slow)" : `Miner ${m + 1}`;
+        svg.appendChild(mLabel);
+      }
+
+      // Column headers
+      const colHeaders = [
+        "R0 · Genesis",
+        "R1 · Quorum vs Delay",
+        "R2 · Cordial Advance & Buffer",
+        "R3 · Tip Catch-Up (tips(B₁))"
+      ];
+      colHeaders.forEach((label, idx) => {
+        const x = leftPad + idx * colGap;
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.setAttribute("x", x);
+        txt.setAttribute("y", 28);
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("fill", "#e2e8f0");
+        txt.setAttribute("font-size", "12.5");
+        txt.setAttribute("font-weight", "700");
+        txt.textContent = label;
+        svg.appendChild(txt);
+      });
+
+      const visibleNodes = getNodesForStep(currentStep);
+      const nodeMap = new Map(visibleNodes.map(n => [n.id, n]));
+
+      visibleNodes.forEach(n => {
+        n.x = leftPad + n.col * colGap;
+        n.y = topPad + n.miner * laneHeight;
+      });
+
+      const hoveredNode = hoveredId ? nodeMap.get(hoveredId) : null;
+      const directParents = hoveredNode ? new Set(hoveredNode.parents) : new Set();
+      const ancestors = hoveredNode ? getAncestors(hoveredNode.id, nodeMap) : new Set();
+
+      // Draw edges
+      visibleNodes.forEach(child => {
+        child.parents.forEach(pid => {
+          const parent = nodeMap.get(pid);
+          if (!parent) return;
+
+          const startX = child.x - boxW / 2;
+          const startY = child.y;
+          const endX = parent.x + boxW / 2;
+          const endY = parent.y;
+          const bend = (startX - endX) * 0.45;
+
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("d", `M ${startX} ${startY} C ${startX - bend} ${startY}, ${endX + bend} ${endY}, ${endX} ${endY}`);
+
+          let cls = "edge";
+          if (!hoveredNode) {
+            if (child.id === "m1_r3" && parent.id === "m4_r2") cls += " rescue-default";
+            else if (child.id === "m4_r2" && parent.id === "m4_r1") cls += " buffered-edge";
+          } else {
+            if (child.id === hoveredNode.id && directParents.has(parent.id)) {
+              cls += " direct";
+            } else if (ancestors.has(child.id) && ancestors.has(parent.id)) {
+              cls += " transitive";
+            } else {
+              cls += " dimmed";
+            }
+          }
+          path.setAttribute("class", cls);
+          svg.appendChild(path);
+        });
+      });
+
+      // Draw nodes
+      visibleNodes.forEach(n => {
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        let cls = "node-group";
+        if (hoveredNode) {
+          if (n.id === hoveredNode.id) cls += " hovered";
+          else if (!ancestors.has(n.id)) cls += " dimmed";
+        }
+        g.setAttribute("class", cls);
+
+        const color = COLORS[n.type] || COLORS.neutral;
+
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", n.x - boxW / 2);
+        rect.setAttribute("y", n.y - boxH / 2);
+        rect.setAttribute("width", boxW);
+        rect.setAttribute("height", boxH);
+        rect.setAttribute("fill", "#0f172a");
+        rect.setAttribute("stroke", color);
+        rect.setAttribute("class", "node-card" + (n.dashed ? " dashed-border" : ""));
+
+        const codeText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        codeText.setAttribute("x", n.x);
+        codeText.setAttribute("y", n.y - 6);
+        codeText.setAttribute("text-anchor", "middle");
+        codeText.setAttribute("fill", "#f8fafc");
+        codeText.setAttribute("font-size", "12.5");
+        codeText.setAttribute("font-weight", "700");
+        codeText.textContent = n.code;
+
+        const roleText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        roleText.setAttribute("x", n.x);
+        roleText.setAttribute("y", n.y + 14);
+        roleText.setAttribute("text-anchor", "middle");
+        roleText.setAttribute("fill", color);
+        roleText.setAttribute("font-size", "10.8");
+        roleText.setAttribute("font-weight", "600");
+        roleText.textContent = n.role;
+
+        g.appendChild(rect);
+        g.appendChild(codeText);
+        g.appendChild(roleText);
+
+        g.addEventListener("mouseenter", () => {
+          hoveredId = n.id;
+          const anc = getAncestors(n.id, nodeMap);
+          document.getElementById("inspTitle").textContent = `${n.code} — ${n.role}`;
+          document.getElementById("inspDesc").textContent = n.desc;
+          document.getElementById("inspParents").textContent = n.parents.length
+            ? n.parents.map(pid => nodeMap.get(pid)?.code || pid).join(", ")
+            : "None (Root Genesis)";
+          document.getElementById("inspAncestors").textContent = anc.size
+            ? Array.from(anc).map(aid => nodeMap.get(aid)?.code || aid).join(" ← ")
+            : "None";
+          renderDAG();
+        });
+
+        g.addEventListener("mouseleave", () => {
+          hoveredId = null;
+          const s = STEPS[currentStep];
+          document.getElementById("inspTitle").textContent = "Section 3 Protocol Mechanics (Hover any block to inspect pointers)";
+          document.getElementById("inspDesc").textContent = s.desc;
+          document.getElementById("inspParents").textContent = "Hover a block";
+          document.getElementById("inspAncestors").textContent = "Hover a block";
+          renderDAG();
+        });
+
+        svg.appendChild(g);
+      });
+    }
+
+    function render() {
+      renderControls();
+      renderStateCards();
+      renderDAG();
+    }
+
+    prevBtn.onclick = () => {
+      if (currentStep > 0) {
+        currentStep--;
+        hoveredId = null;
+        render();
+      }
+    };
+
+    nextBtn.onclick = () => {
+      if (currentStep < STEPS.length - 1) {
+        currentStep++;
+        hoveredId = null;
+        render();
+      }
+    };
+
+    render();
+  </script>
+</body>
+</html>
