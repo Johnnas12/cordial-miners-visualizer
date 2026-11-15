@@ -146,10 +146,6 @@
       border-color: var(--accent);
     }
 
-    .module-card.upcoming {
-      opacity: 0.72;
-    }
-
     .card-top {
       display: flex;
       flex-direction: column;
@@ -181,12 +177,6 @@
       background: rgba(16, 185, 129, 0.16);
       color: #34d399;
       border: 1px solid rgba(16, 185, 129, 0.4);
-    }
-
-    .status-pill.soon {
-      background: rgba(148, 163, 184, 0.14);
-      color: var(--muted);
-      border: 1px solid var(--border);
     }
 
     .module-card h2 {
@@ -239,13 +229,6 @@
       background: #7dd3fc;
     }
 
-    .launch-btn.disabled {
-      background: var(--surface-alt);
-      color: var(--muted);
-      border: 1px solid var(--border);
-      pointer-events: none;
-    }
-
     footer {
       border-top: 1px solid var(--border);
       padding-top: 16px;
@@ -266,7 +249,7 @@
       </a>
       <h1>Cordial Miners: Interactive Blocklace Visualizer</h1>
       <p>
-        An incremental, hands-on visual guide to DAG-based consensus without Reliable Broadcast. Start with the clean 3-round eventual synchrony pipeline, then explore network delays and Byzantine equivocation pruning.
+        A visual reference to DAG-based consensus without Reliable Broadcast. Inspect the 3-round eventual synchrony pipeline, quorum-driven cordial dissemination, and deterministic exclusion of Byzantine equivocations during ordering.
       </p>
     </section>
 
@@ -278,14 +261,14 @@
       <div class="pipe-step"><span>Stage 5</span><strong>Monotonic τ(B) xsort</strong></div>
     </div>
 
-    <h2 class="section-title">Interactive Learning Path</h2>
+    <h2 class="section-title">Execution Models</h2>
 
     <section class="modules-grid">
       <!-- Module 1 -->
       <article class="module-card live">
         <div class="card-top">
           <div class="card-header">
-            <span class="mod-num">Module 01 · Start Here</span>
+            <span class="mod-num">Module 01 · Section 4</span>
             <span class="status-pill ready">● Live</span>
           </div>
           <h2>Eventual Synchrony & 3-Round Wave Finality</h2>
@@ -303,15 +286,15 @@
       </article>
 
       <!-- Module 2 -->
-      <article class="module-card upcoming">
+      <article class="module-card live">
         <div class="card-top">
           <div class="card-header">
-            <span class="mod-num">Module 02</span>
-            <span class="status-pill soon">Next Up</span>
+            <span class="mod-num">Module 02 · Section 3</span>
+            <span class="status-pill ready">● Live</span>
           </div>
           <h2>Cordial Dissemination & Delayed Tip Rescue</h2>
           <p>
-            See how miners advance on a 2f+1 supermajority without stalling for stragglers, and how unreferenced tips get swept back into the causal cone.
+            See how miners advance on a &gt;(n+f)/2 supermajority without stalling for stragglers, buffer out-of-order blocks, and sweep unreferenced tips into tips(B).
           </p>
           <div class="topic-tags">
             <span class="tag">Supermajority Quorum</span>
@@ -319,27 +302,27 @@
             <span class="tag">Closed Blocklace</span>
           </div>
         </div>
-        <span class="launch-btn disabled">Coming Next</span>
+        <a href="module_2.html" class="launch-btn primary">Launch Module 02 →</a>
       </article>
 
       <!-- Module 3 -->
-      <article class="module-card upcoming">
+      <article class="module-card live">
         <div class="card-top">
           <div class="card-header">
-            <span class="mod-num">Module 03</span>
-            <span class="status-pill soon">Planned</span>
+            <span class="mod-num">Module 03 · Sections 2 & 4</span>
+            <span class="status-pill ready">● Live</span>
           </div>
-          <h2>Byzantine Equivocation & Deterministic Pruning</h2>
+          <h2>Byzantine Equivocation Detection & Exclusion</h2>
           <p>
-            Simulate a malicious miner broadcasting conflicting blocks in the same round and watch honest miners withhold approval and strip forks in τ(B).
+            Simulate a malicious miner broadcasting conflicting blocks in the same round and watch honest miners withhold approval and exclude forks during ordering in τ(B).
           </p>
           <div class="topic-tags">
             <span class="tag">Fork Detection</span>
             <span class="tag">No Reliable Broadcast</span>
-            <span class="tag">Fork Pruning</span>
+            <span class="tag">Fork Exclusion</span>
           </div>
         </div>
-        <span class="launch-btn disabled">Coming Soon</span>
+        <a href="module_3.html" class="launch-btn primary">Launch Module 03 →</a>
       </article>
     </section>
 
