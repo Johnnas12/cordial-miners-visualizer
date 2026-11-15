@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cordial Miners — 01. Eventual Synchrony, Finality & τ(B) Kahn's Sort</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --surface: #111827;
+      --surface-alt: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --genesis: #a855f7;
+      --leader: #f59e0b;
+      --approver: #3b82f6;
+      --ratifier: #10b981;
+      --super: #ec4899;
+      --neutral: #64748b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1380px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .module-tag {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    h1 { font-size: 1.42rem; font-weight: 700; letter-spacing: -0.02em; }
+    .subtitle { color: var(--muted); font-size: 0.91rem; margin-top: 2px; }
+
+    .params-badge {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: var(--accent);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    .control-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .control-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .step-counter {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--leader);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: block;
+    }
+
+    .step-title { font-size: 1.08rem; font-weight: 700; }
+
+    .btn-group { display: flex; flex-wrap: wrap; gap: 10px; }
+
+    button {
+      background: var(--surface-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 15px;
+      border-radius: 8px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+    button.primary {
+      background: var(--accent);
+      color: #0b1120;
+      border-color: var(--accent);
+    }
+
+    button.primary:hover:not(:disabled) { background: #7dd3fc; color: #0b1120; }
+
+    button.kahn-btn {
+      background: rgba(16, 185, 129, 0.16);
+      border-color: var(--ratifier);
+      color: #34d399;
+    }
+
+    button.kahn-btn:hover:not(:disabled) {
+      background: rgba(16, 185, 129, 0.28);
+      color: #6ee7b7;
+    }
+
+    button:disabled { opacity: 0.38; cursor: not-allowed; }
+
+    .step-pills {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 6px;
+    }
+
+    .step-pill {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 8px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .step-pill.done {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: rgba(56, 189, 248, 0.06);
+    }
+
+    .step-pill.active {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.18);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .step-pill span { display: block; }
+    .step-pill .r-tag { font-size: 0.7rem; font-weight: 700; color: var(--accent); }
+    .step-pill .r-name {
+      font-size: 0.77rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      font-size: 0.79rem;
+      color: var(--muted);
+      padding: 2px 4px;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .line-solid { width: 20px; border-top: 2.5px solid var(--accent); display: inline-block; }
+    .line-dashed { width: 20px; border-top: 2px dashed var(--genesis); display: inline-block; }
+
+    .dag-viewport {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow-x: auto;
+      padding: 10px;
+    }
+
+    svg {
+      display: block;
+      width: 1840px;
+      height: 560px;
+    }
+
+    .lane-band { fill: rgba(30, 41, 59, 0.35); rx: 10; }
+    .wave-band {
+      fill: rgba(56, 189, 248, 0.03);
+      stroke: rgba(56, 189, 248, 0.18);
+      stroke-dasharray: 4 4;
+      rx: 10;
+    }
+
+    .edge {
+      fill: none;
+      stroke: #475569;
+      stroke-width: 1.6;
+      opacity: 0.28;
+      transition: opacity 0.15s ease, stroke 0.15s ease, stroke-width 0.15s ease;
+    }
+
+    .edge.direct { stroke: var(--accent); stroke-width: 3; opacity: 1; }
+    .edge.transitive { stroke: var(--genesis); stroke-width: 2.2; stroke-dasharray: 6 4; opacity: 0.92; }
+    .edge.dimmed { opacity: 0.05; }
+
+    .node-group { cursor: pointer; transition: opacity 0.15s ease; }
+    .node-group.dimmed { opacity: 0.2; }
+    .node-card { rx: 10; ry: 10; stroke-width: 2; transition: filter 0.15s ease; }
+
+    .node-group:hover .node-card,
+    .node-group.hovered .node-card {
+      filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.7));
+    }
+
+    .node-group.kahn-active .node-card {
+      filter: drop-shadow(0 0 14px rgba(16, 185, 129, 0.9));
+      stroke-width: 3;
+    }
+
+    /* Inspector + Monotonicity Bar */
+    .inspector {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 22px;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    @media (max-width: 960px) {
+      .inspector { grid-template-columns: 1fr; }
+      .step-pills { grid-template-columns: repeat(4, 1fr); }
+    }
+
+    .inspector h3 { font-size: 1.04rem; color: var(--accent); margin-bottom: 6px; }
+    .inspector p { font-size: 0.92rem; color: #e2e8f0; }
+
+    .details-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 0.85rem;
+    }
+
+    .details-box strong { color: var(--muted); display: inline-block; min-width: 170px; }
+
+    .tau-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .tau-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tau-header h4 { font-size: 0.95rem; color: #34d399; }
+    .tau-sub { font-size: 0.82rem; color: var(--muted); }
+
+    .tau-stream {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      min-height: 38px;
+    }
+
+    .tau-chip {
+      padding: 5px 11px;
+      border-radius: 7px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tau-chip.prefix {
+      background: rgba(168, 85, 247, 0.16);
+      border: 1px solid rgba(168, 85, 247, 0.55);
+      color: #d8b4fe;
+    }
+
+    .tau-chip.delta {
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(16, 185, 129, 0.55);
+      color: #6ee7b7;
+    }
+
+    .tau-arrow { color: var(--muted); font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <span class="module-tag">Module 01 · Core Consensus & Deterministic Ordering</span>
+        <h1>Eventual Synchrony: 3-Round Waves, Anchoring & τ(B) Kahn's Sort</h1>
+        <p class="subtitle">Trace how L₁ anchors Wave 2, how L₂ super-ratifies in Round 7, and how Kahn's algorithm (xsort) preserves monotonicity.</p>
+      </div>
+      <span class="params-badge">n = 4 · f = 1 · Quorum = 3 · 3 Rounds / Wave</span>
+    </header>
+
+    <section class="control-panel">
+      <div class="control-header">
+        <div>
+          <span class="step-counter" id="stepCounter">Step 0 of 7 · Round 0</span>
+          <h2 class="step-title" id="stepTitle">Step 0: Shared Genesis Block (b₀)</h2>
+        </div>
+        <div class="btn-group">
+          <button id="kahnStepBtn" class="kahn-btn" disabled>▶ Step Kahn's xsort</button>
+          <button id="prevBtn">← Previous</button>
+          <button id="nextBtn" class="primary">Next Round →</button>
+        </div>
+      </div>
+      <div class="step-pills" id="stepPills"></div>
+    </section>
+
+    <div class="legend">
+      <span class="legend-item"><i class="dot" style="background:var(--genesis)"></i>Genesis / L₁ Anchor Cone</span>
+      <span class="legend-item"><i class="dot" style="background:var(--leader)"></i>Round-Robin Leader</span>
+      <span class="legend-item"><i class="dot" style="background:var(--approver)"></i>Approver</span>
+      <span class="legend-item"><i class="dot" style="background:var(--ratifier)"></i>Ratifier / L₂ Delta Cone</span>
+      <span class="legend-item"><i class="dot" style="background:var(--super)"></i>Super-Ratifier (Final)</span>
+      <span class="legend-item"><i class="line-solid"></i>Direct Pointer (Ack)</span>
+      <span class="legend-item"><i class="line-dashed"></i>Causal Cone (Obs)</span>
+    </div>
+
+    <div class="dag-viewport" id="dagViewport">
+      <svg id="dagSvg" viewBox="0 0 1840 560"></svg>
+    </div>
+
+    <section class="tau-panel">
+      <div class="tau-header">
+        <h4>Deterministic Ordering Output τ(B) — Monotonic Prefix + Kahn's Topological Sort (xsort)</h4>
+        <span class="tau-sub" id="tauRuleNote">Purple = Locked L₁ Prefix (never reordered) · Emerald = Newly finalized cone(L₂) \ cone(L₁) sorted by (Round, Miner)</span>
+      </div>
+      <div class="tau-stream" id="tauStream"></div>
+    </section>
+
+    <section class="inspector">
+      <div>
+        <h3 id="inspTitle">Stage Explanation (Hover any block to inspect pointers)</h3>
+        <p id="inspDesc"></p>
+      </div>
+      <div class="details-box">
+        <div><strong>Round-Robin Leader:</strong> <span id="inspElection">Leader(w) = Miner ((w - 1) mod 4) + 1</span></div>
+        <div><strong>Direct Pointers (Ack):</strong> <span id="inspParents">Hover a block</span></div>
+        <div><strong>Causal Cone (Obs):</strong> <span id="inspAncestors">Hover a block</span></div>
+        <div><strong>Kahn's xsort Tie-Break:</strong> <span>In-degree 0 → Lowest Round → Lowest Miner ID</span></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const COLORS = {
+      genesis: "#a855f7",
+      leader: "#f59e0b",
+      approver: "#3b82f6",
+      ratifier: "#10b981",
+      super: "#ec4899",
+      neutral: "#64748b"
+    };
+
+    const ROUNDS = [
+      "R0 · Genesis",
+      "R1 · W1 Propose",
+      "R2 · W1 Approve",
+      "R3 · W1 Ratify",
+      "R4 · W2 Propose / Super L₁",
+      "R5 · W2 Approve L₂",
+      "R6 · W2 Ratify L₂",
+      "R7 · W3 / Super L₂"
+    ];
+
+    const STEPS = [
+      {
+        pillTag: "Round 0",
+        pillName: "Genesis b₀",
+        title: "Step 0: Shared Genesis Block (b₀)",
+        desc: "All miners initialize with deterministic Genesis b₀ at Round 0. It is the root of every future causal cone."
+      },
+      {
+        pillTag: "Round 1",
+        pillName: "Leader L₁ (M1)",
+        title: "Step 1: Wave 1 Propose — Round-Robin Elects Miner 1 (L₁)",
+        desc: "All Round 1 blocks point to b₀. Round-robin elects Miner 1 (M1·R1) as Wave 1 Leader L₁. Notice M2·R1, M3·R1, and M4·R1 sit parallel to L₁—they are NOT in cone(L₁) yet."
+      },
+      {
+        pillTag: "Round 2",
+        pillName: "Approve L₁",
+        title: "Step 2: Wave 1 Approve — 3/4 Quorum Observes L₁",
+        desc: "Miners advance after collecting 3/4 Round 1 blocks. M1·R2, M2·R2, and M3·R2 point to L₁ and become Approvers."
+      },
+      {
+        pillTag: "Round 3",
+        pillName: "Ratify L₁",
+        title: "Step 3: Wave 1 Ratify — Observing ≥3 Approvals",
+        desc: "M1·R3, M2·R3, and M3·R3 observe ≥3 Round 2 Approvers and formally Ratify L₁."
+      },
+      {
+        pillTag: "Round 4",
+        pillName: "Final L₁ + L₂",
+        title: "Step 4: L₁ Super-Ratified (Final!) & Anchored as Previous Leader for L₂",
+        desc: "Round 4 blocks observe ≥3 Ratifiers, making L₁ FINAL! τ(B) immediately commits cone(L₁) = [b₀, M1·R1]. Meanwhile, Round-Robin elects Miner 2 (M2·R4) as Wave 2 Leader L₂, with L₁ anchored as its prior finalized leader."
+      },
+      {
+        pillTag: "Round 5",
+        pillName: "Approve L₂",
+        title: "Step 5: Wave 2 Approve — Collecting Approvals for L₂",
+        desc: "Starting a fresh approval cycle for L₂ (M2·R4), Round 5 blocks that observe L₂ become Approvers of L₂."
+      },
+      {
+        pillTag: "Round 6",
+        pillName: "Ratify L₂",
+        title: "Step 6: Wave 2 Ratify — Observing ≥3 Approvals of L₂",
+        desc: "Round 6 blocks observe ≥3 Round 5 Approvers, formally Ratifying Wave 2 Leader L₂."
+      },
+      {
+        pillTag: "Round 7",
+        pillName: "Final L₂ + τ(B)",
+        title: "Step 7: L₂ Super-Ratified → Monotonic τ(B) via Kahn's Algorithm (xsort)",
+        desc: "Round 7 blocks super-ratify L₂! Because L₁ was anchored as the previous leader, τ(B) keeps [b₀, M1·R1] locked (monotonicity) and runs Kahn's topological sort (xsort) on the new delta cone(L₂) \\ cone(L₁) to append all remaining R1–R4 blocks in deterministic order!"
+      }
+    ];
+
+    const NODES = [
+      // Round 0
+      { id: "b0", round: 0, miner: 1.5, code: "Genesis b₀", role: "Root Anchor", type: "genesis", parents: [],
+        desc: "Deterministic Genesis root shared by all miners." },
+
+      // Round 1
+      { id: "m1_r1", round: 1, miner: 0, code: "M1 · R1", role: "Leader L₁", type: "leader", parents: ["b0"],
+        desc: "Wave 1 Leader L₁. Committed at Round 4 as part of cone(L₁) = {b₀, M1·R1}." },
+      { id: "m2_r1", round: 1, miner: 1, code: "M2 · R1", role: "Block", type: "neutral", parents: ["b0"],
+        desc: "Outside cone(L₁), so it waits until L₂ finalizes at Round 7, then enters τ(B) via Kahn's xsort." },
+      { id: "m3_r1", round: 1, miner: 2, code: "M3 · R1", role: "Block", type: "neutral", parents: ["b0"],
+        desc: "Outside cone(L₁); swept into cone(L₂) \\ cone(L₁) and ordered deterministically at Round 7." },
+      { id: "m4_r1", round: 1, miner: 3, code: "M4 · R1", role: "Block", type: "neutral", parents: ["b0"],
+        desc: "Outside cone(L₁); swept into cone(L₂) \\ cone(L₁) and ordered deterministically at Round 7." },
+
+      // Round 2
+      { id: "m1_r2", round: 2, miner: 0, code: "M1 · R2", role: "Approver (L₁)", type: "approver", parents: ["m1_r1", "m2_r1", "m3_r1"],
+        desc: "Approves L₁. Ordered in cone(L₂) \\ cone(L₁) once L₂ is super-ratified." },
+      { id: "m2_r2", round: 2, miner: 1, code: "M2 · R2", role: "Approver (L₁)", type: "approver", parents: ["m1_r1", "m2_r1", "m4_r1"],
+        desc: "Approves L₁." },
+      { id: "m3_r2", round: 2, miner: 2, code: "M3 · R2", role: "Approver (L₁)", type: "approver", parents: ["m1_r1", "m3_r1", "m4_r1"],
+        desc: "Approves L₁." },
+      { id: "m4_r2", round: 2, miner: 3, code: "M4 · R2", role: "Block (No L₁)", type: "neutral", parents: ["m2_r1", "m3_r1", "m4_r1"],
+        desc: "Did not see L₁ directly in R1, yet still gets ordered cleanly inside cone(L₂) \\ cone(L₁) at Round 7!" },
+
+      // Round 3
+      { id: "m1_r3", round: 3, miner: 0, code: "M1 · R3", role: "Ratifier (L₁)", type: "ratifier", parents: ["m1_r2", "m2_r2", "m3_r2"],
+        desc: "Ratifies L₁ by observing ≥3 Round 2 Approvers." },
+      { id: "m2_r3", round: 3, miner: 1, code: "M2 · R3", role: "Ratifier (L₁)", type: "ratifier", parents: ["m1_r2", "m2_r2", "m3_r2"],
+        desc: "Ratifies L₁ by observing ≥3 Round 2 Approvers." },
+      { id: "m3_r3", round: 3, miner: 2, code: "M3 · R3", role: "Ratifier (L₁)", type: "ratifier", parents: ["m1_r2", "m2_r2", "m3_r2"],
+        desc: "Ratifies L₁ by observing ≥3 Round 2 Approvers." },
+      { id: "m4_r3", round: 3, miner: 3, code: "M4 · R3", role: "Block (2/3 App)", type: "neutral", parents: ["m2_r2", "m3_r2", "m4_r2"],
+        desc: "Only observed 2 Approvers; not needed for L₁ ratification." },
+
+      // Round 4
+      { id: "m1_r4", round: 4, miner: 0, code: "M1 · R4", role: "Super-Ratifier L₁", type: "super", parents: ["m1_r3", "m2_r3", "m3_r3"],
+        desc: "Super-Ratifies L₁! Locks L₁ as Final Anchor." },
+      { id: "m2_r4", round: 4, miner: 1, code: "M2 · R4", role: "Leader L₂ · Super", type: "super", parents: ["m1_r3", "m2_r3", "m3_r3"],
+        desc: "Wave 2 Leader L₂ (Round-Robin Miner 2) AND Super-Ratifier of L₁. Anchors L₁ as previous finalized leader." },
+      { id: "m3_r4", round: 4, miner: 2, code: "M3 · R4", role: "Super-Ratifier L₁", type: "super", parents: ["m1_r3", "m2_r3", "m3_r3"],
+        desc: "Super-Ratifies L₁." },
+      { id: "m4_r4", round: 4, miner: 3, code: "M4 · R4", role: "Block (2/3 Rat)", type: "neutral", parents: ["m2_r3", "m3_r3", "m4_r3"],
+        desc: "Round 4 block." },
+
+      // Round 5 (Approve L2)
+      { id: "m1_r5", round: 5, miner: 0, code: "M1 · R5", role: "Approver (L₂)", type: "approver", parents: ["m1_r4", "m2_r4", "m3_r4"],
+        desc: "Approves Wave 2 Leader L₂ (M2·R4)." },
+      { id: "m2_r5", round: 5, miner: 1, code: "M2 · R5", role: "Approver (L₂)", type: "approver", parents: ["m1_r4", "m2_r4", "m3_r4"],
+        desc: "Approves Wave 2 Leader L₂ (M2·R4)." },
+      { id: "m3_r5", round: 5, miner: 2, code: "M3 · R5", role: "Approver (L₂)", type: "approver", parents: ["m1_r4", "m2_r4", "m3_r4"],
+        desc: "Approves Wave 2 Leader L₂ (M2·R4), completing 3/4 Approvals." },
+      { id: "m4_r5", round: 5, miner: 3, code: "M4 · R5", role: "Block (No L₂)", type: "neutral", parents: ["m1_r4", "m3_r4", "m4_r4"],
+        desc: "Did not include M2·R4 in its 3/4 quorum." },
+
+      // Round 6 (Ratify L2)
+      { id: "m1_r6", round: 6, miner: 0, code: "M1 · R6", role: "Ratifier (L₂)", type: "ratifier", parents: ["m1_r5", "m2_r5", "m3_r5"],
+        desc: "Ratifies L₂ by observing 3/4 Round 5 Approvers." },
+      { id: "m2_r6", round: 6, miner: 1, code: "M2 · R6", role: "Ratifier (L₂)", type: "ratifier", parents: ["m1_r5", "m2_r5", "m3_r5"],
+        desc: "Ratifies L₂ by observing 3/4 Round 5 Approvers." },
+      { id: "m3_r6", round: 6, miner: 2, code: "M3 · R6", role: "Ratifier (L₂)", type: "ratifier", parents: ["m1_r5", "m2_r5", "m3_r5"],
+        desc: "Ratifies L₂ by observing 3/4 Round 5 Approvers." },
+      { id: "m4_r6", round: 6, miner: 3, code: "M4 · R6", role: "Block (2/3 App)", type: "neutral", parents: ["m2_r5", "m3_r5", "m4_r5"],
+        desc: "Observed 2 Approvers of L₂." },
+
+      // Round 7 (Super-Ratify L2 -> Finality & Kahn's xsort)
+      { id: "m1_r7", round: 7, miner: 0, code: "M1 · R7", role: "Super-Ratifier L₂", type: "super", parents: ["m1_r6", "m2_r6", "m3_r6"],
+        desc: "SUPER-RATIFIES L₂! Locks Finality on L₂ and triggers Kahn's xsort on cone(L₂) \\ cone(L₁)." },
+      { id: "m2_r7", round: 7, miner: 1, code: "M2 · R7", role: "Super-Ratifier L₂", type: "super", parents: ["m1_r6", "m2_r6", "m3_r6"],
+        desc: "Super-Ratifies L₂." },
+      { id: "m3_r7", round: 7, miner: 2, code: "M3 · R7", role: "Super-Ratifier L₂", type: "super", parents: ["m1_r6", "m2_r6", "m3_r6"],
+        desc: "Super-Ratifies L₂." },
+      { id: "m4_r7", round: 7, miner: 3, code: "M4 · R7", role: "Block (2/3 Rat)", type: "neutral", parents: ["m2_r6", "m3_r6", "m4_r6"],
+        desc: "Round 7 block." }
+    ];
+
+    // Kahn's xsort sequence for Step 7:
+    // Prefix cone(L1) = [b0, m1_r1]
+    // Delta cone(L2) \ cone(L1) sorted by Kahn's algorithm (tie-break: round asc, miner asc)
+    const L1_PREFIX_IDS = ["b0", "m1_r1"];
+    const L2_DELTA_IDS = [
+      "m2_r1", "m3_r1", "m4_r1",
+      "m1_r2", "m2_r2", "m3_r2",
+      "m1_r3", "m2_r3", "m3_r3",
+      "m2_r4"
+    ];
+
+    let currentStep = 0;
+    let hoveredId = null;
+    let kahnRevealedCount = L2_DELTA_IDS.length; // Show full list by default on Step 7, or step through
+
+    const svg = document.getElementById("dagSvg");
+    const pillsEl = document.getElementById("stepPills");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const kahnBtn = document.getElementById("kahnStepBtn");
+    const viewport = document.getElementById("dagViewport");
+
+    function getAncestors(id, map, set = new Set()) {
+      const node = map.get(id);
+      if (!node) return set;
+      for (const pid of node.parents) {
+        if (!set.has(pid)) {
+          set.add(pid);
+          getAncestors(pid, map, set);
+        }
+      }
+      return set;
+    }
+
+    function renderTauStream() {
+      const stream = document.getElementById("tauStream");
+      stream.innerHTML = "";
+      const nodeMap = new Map(NODES.map(n => [n.id, n]));
+
+      if (currentStep < 4) {
+        stream.innerHTML = `<span class="tau-chip prefix">Genesis b₀</span><span class="tau-sub" style="margin-left:8px;">(Waiting for L₁ Super-Ratification at Round 4 to commit Wave 1...)</span>`;
+        return;
+      }
+
+      // Always render L1 monotonic prefix
+      L1_PREFIX_IDS.forEach((id, idx) => {
+        if (idx > 0) {
+          const arr = document.createElement("span");
+          arr.className = "tau-arrow";
+          arr.textContent = "→";
+          stream.appendChild(arr);
+        }
+        const chip = document.createElement("span");
+        chip.className = "tau-chip prefix";
+        chip.textContent = nodeMap.get(id).code;
+        stream.appendChild(chip);
+      });
+
+      if (currentStep < 7) {
+        const note = document.createElement("span");
+        note.className = "tau-sub";
+        note.style.marginLeft = "10px";
+        note.textContent = "🔒 Prefix locked (Monotonicity guaranteed). Waiting for L₂ Super-Ratification at Round 7...";
+        stream.appendChild(note);
+        return;
+      }
+
+      // Step 7: Append Kahn's xsort delta blocks
+      const slice = L2_DELTA_IDS.slice(0, kahnRevealedCount);
+      slice.forEach((id) => {
+        const arr = document.createElement("span");
+        arr.className = "tau-arrow";
+        arr.textContent = "→";
+        stream.appendChild(arr);
+
+        const chip = document.createElement("span");
+        chip.className = "tau-chip delta";
+        chip.textContent = nodeMap.get(id).code;
+        stream.appendChild(chip);
+      });
+    }
+
+    function renderControls() {
+      const s = STEPS[currentStep];
+      document.getElementById("stepCounter").textContent = `Step ${currentStep} of ${STEPS.length - 1} · Round ${currentStep}`;
+      document.getElementById("stepTitle").textContent = s.title;
+      document.getElementById("inspDesc").textContent = s.desc;
+
+      prevBtn.disabled = currentStep === 0;
+      nextBtn.disabled = currentStep === STEPS.length - 1;
+      kahnBtn.disabled = currentStep !== 7;
+      kahnBtn.textContent = kahnRevealedCount < L2_DELTA_IDS.length
+        ? `▶ Kahn Pop Next (${kahnRevealedCount}/${L2_DELTA_IDS.length})`
+        : "↻ Replay Kahn's xsort";
+
+      pillsEl.innerHTML = "";
+      STEPS.forEach((step, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "step-pill" + (idx === currentStep ? " active" : idx < currentStep ? " done" : "");
+        btn.innerHTML = `<span class="r-tag">${step.pillTag}</span><span class="r-name">${step.pillName}</span>`;
+        btn.onclick = () => {
+          currentStep = idx;
+          hoveredId = null;
+          kahnRevealedCount = L2_DELTA_IDS.length;
+          render();
+          viewport.scrollTo({ left: Math.max(0, currentStep * 215 - 320), behavior: "smooth" });
+        };
+        pillsEl.appendChild(btn);
+      });
+    }
+
+    function renderDAG() {
+      svg.innerHTML = "";
+
+      const leftPad = 135;
+      const colGap = 228;
+      const topPad = 95;
+      const laneHeight = 112;
+      const boxW = 138;
+      const boxH = 50;
+
+      // Wave grouping backdrops
+      const drawWaveBand = (startCol, spanCols, label, color) => {
+        const x = leftPad + startCol * colGap - 82;
+        const w = spanCols * colGap + 164;
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", x);
+        rect.setAttribute("y", 10);
+        rect.setAttribute("width", w);
+        rect.setAttribute("height", 535);
+        rect.setAttribute("class", "wave-band");
+        svg.appendChild(rect);
+
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.setAttribute("x", x + w / 2);
+        txt.setAttribute("y", 26);
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("fill", color);
+        txt.setAttribute("font-size", "11.5");
+        txt.setAttribute("font-weight", "700");
+        txt.textContent = label;
+        svg.appendChild(txt);
+      };
+
+      drawWaveBand(1, 2, "WAVE 1 (R1–R3) · Leader = Miner 1", "#38bdf8");
+      drawWaveBand(4, 2, "WAVE 2 (R4–R6) · Leader = Miner 2 (Anchors L₁)", "#f59e0b");
+
+      // Miner swimlanes
+      for (let m = 0; m < 4; m++) {
+        const y = topPad + m * laneHeight;
+        const lane = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        lane.setAttribute("x", 12);
+        lane.setAttribute("y", y - 44);
+        lane.setAttribute("width", 1816);
+        lane.setAttribute("height", 88);
+        lane.setAttribute("class", "lane-band");
+        svg.appendChild(lane);
+
+        const mLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        mLabel.setAttribute("x", 26);
+        mLabel.setAttribute("y", y + 4);
+        mLabel.setAttribute("fill", "#94a3b8");
+        mLabel.setAttribute("font-size", "13");
+        mLabel.setAttribute("font-weight", "700");
+        mLabel.textContent = `Miner ${m + 1}`;
+        svg.appendChild(mLabel);
+      }
+
+      // Column headers
+      ROUNDS.forEach((label, idx) => {
+        const x = leftPad + idx * colGap;
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.setAttribute("x", x);
+        txt.setAttribute("y", 46);
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("fill", idx <= currentStep ? "#e2e8f0" : "#475569");
+        txt.setAttribute("font-size", "12");
+        txt.setAttribute("font-weight", "700");
+        txt.textContent = label;
+        svg.appendChild(txt);
+      });
+
+      const visibleNodes = NODES.filter(n => n.round <= currentStep);
+      const nodeMap = new Map(visibleNodes.map(n => [n.id, n]));
+
+      visibleNodes.forEach(n => {
+        n.x = leftPad + n.round * colGap;
+        n.y = topPad + n.miner * laneHeight;
+      });
+
+      const hoveredNode = hoveredId ? nodeMap.get(hoveredId) : null;
+      const directParents = hoveredNode ? new Set(hoveredNode.parents) : new Set();
+      const ancestors = hoveredNode ? getAncestors(hoveredNode.id, nodeMap) : new Set();
+
+      const activeKahnId = currentStep === 7 && kahnRevealedCount > 0
+        ? L2_DELTA_IDS[kahnRevealedCount - 1]
+        : null;
+
+      // Edges
+      visibleNodes.forEach(child => {
+        child.parents.forEach(pid => {
+          const parent = nodeMap.get(pid);
+          if (!parent) return;
+
+          const startX = child.x - boxW / 2;
+          const startY = child.y;
+          const endX = parent.x + boxW / 2;
+          const endY = parent.y;
+          const bend = (startX - endX) * 0.45;
+
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("d", `M ${startX} ${startY} C ${startX - bend} ${startY}, ${endX + bend} ${endY}, ${endX} ${endY}`);
+
+          let cls = "edge";
+          if (hoveredNode) {
+            if (child.id === hoveredNode.id && directParents.has(parent.id)) {
+              cls += " direct";
+            } else if (ancestors.has(child.id) && ancestors.has(parent.id)) {
+              cls += " transitive";
+            } else {
+              cls += " dimmed";
+            }
+          }
+          path.setAttribute("class", cls);
+          svg.appendChild(path);
+        });
+      });
+
+      // Nodes
+      visibleNodes.forEach(n => {
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        let cls = "node-group";
+        if (hoveredNode) {
+          if (n.id === hoveredNode.id) cls += " hovered";
+          else if (!ancestors.has(n.id)) cls += " dimmed";
+        }
+        if (n.id === activeKahnId) cls += " kahn-active";
+        g.setAttribute("class", cls);
+
+        const color = COLORS[n.type] || COLORS.neutral;
+
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", n.x - boxW / 2);
+        rect.setAttribute("y", n.y - boxH / 2);
+        rect.setAttribute("width", boxW);
+        rect.setAttribute("height", boxH);
+        rect.setAttribute("fill", "#0f172a");
+        rect.setAttribute("stroke", color);
+        rect.setAttribute("class", "node-card");
+
+        const codeText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        codeText.setAttribute("x", n.x);
+        codeText.setAttribute("y", n.y - 5);
+        codeText.setAttribute("text-anchor", "middle");
+        codeText.setAttribute("fill", "#f8fafc");
+        codeText.setAttribute("font-size", "12.5");
+        codeText.setAttribute("font-weight", "700");
+        codeText.textContent = n.code;
+
+        const roleText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        roleText.setAttribute("x", n.x);
+        roleText.setAttribute("y", n.y + 14);
+        roleText.setAttribute("text-anchor", "middle");
+        roleText.setAttribute("fill", color);
+        roleText.setAttribute("font-size", "11");
+        roleText.setAttribute("font-weight", "600");
+        roleText.textContent = n.role;
+
+        g.appendChild(rect);
+        g.appendChild(codeText);
+        g.appendChild(roleText);
+
+        // Kahn rank badge on Step 7
+        if (currentStep === 7) {
+          const pIdx = L1_PREFIX_IDS.indexOf(n.id);
+          const dIdx = L2_DELTA_IDS.slice(0, kahnRevealedCount).indexOf(n.id);
+          const rank = pIdx !== -1 ? pIdx + 1 : dIdx !== -1 ? L1_PREFIX_IDS.length + dIdx + 1 : null;
+          if (rank !== null) {
+            const badgeBg = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            badgeBg.setAttribute("cx", n.x + boxW / 2 - 4);
+            badgeBg.setAttribute("cy", n.y - boxH / 2 + 4);
+            badgeBg.setAttribute("r", 11);
+            badgeBg.setAttribute("fill", pIdx !== -1 ? "#a855f7" : "#10b981");
+            svg.appendChild(badgeBg);
+
+            const badgeTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            badgeTxt.setAttribute("x", n.x + boxW / 2 - 4);
+            badgeTxt.setAttribute("y", n.y - boxH / 2 + 8);
+            badgeTxt.setAttribute("text-anchor", "middle");
+            badgeTxt.setAttribute("fill", "#0b1120");
+            badgeTxt.setAttribute("font-size", "10.5");
+            badgeTxt.setAttribute("font-weight", "800");
+            badgeTxt.textContent = `#${rank}`;
+            svg.appendChild(badgeTxt);
+          }
+        }
+
+        g.addEventListener("mouseenter", () => {
+          hoveredId = n.id;
+          const anc = getAncestors(n.id, nodeMap);
+          document.getElementById("inspTitle").textContent = `${n.code} — ${n.role}`;
+          document.getElementById("inspDesc").textContent = n.desc;
+          document.getElementById("inspParents").textContent = n.parents.length
+            ? n.parents.map(pid => nodeMap.get(pid)?.code || pid).join(", ")
+            : "None (Root Genesis)";
+          document.getElementById("inspAncestors").textContent = anc.size
+            ? Array.from(anc).map(aid => nodeMap.get(aid)?.code || aid).join(" ← ")
+            : "None";
+          renderDAG();
+        });
+
+        g.addEventListener("mouseleave", () => {
+          hoveredId = null;
+          const s = STEPS[currentStep];
+          document.getElementById("inspTitle").textContent = "Stage Explanation (Hover any block to inspect pointers)";
+          document.getElementById("inspDesc").textContent = s.desc;
+          document.getElementById("inspParents").textContent = "Hover a block";
+          document.getElementById("inspAncestors").textContent = "Hover a block";
+          renderDAG();
+        });
+
+        svg.appendChild(g);
+      });
+    }
+
+    function render() {
+      renderControls();
+      renderTauStream();
+      renderDAG();
+    }
+
+    prevBtn.onclick = () => {
+      if (currentStep > 0) {
+        currentStep--;
+        hoveredId = null;
+        kahnRevealedCount = L2_DELTA_IDS.length;
+        render();
+        viewport.scrollTo({ left: Math.max(0, currentStep * 215 - 320), behavior: "smooth" });
+      }
+    };
+
+    nextBtn.onclick = () => {
+      if (currentStep < STEPS.length - 1) {
+        currentStep++;
+        hoveredId = null;
+        kahnRevealedCount = L2_DELTA_IDS.length;
+        render();
+        viewport.scrollTo({ left: Math.max(0, currentStep * 215 - 320), behavior: "smooth" });
+      }
+    };
+
+    kahnBtn.onclick = () => {
+      if (currentStep !== 7) return;
+      if (kahnRevealedCount >= L2_DELTA_IDS.length) {
+        kahnRevealedCount = 1;
+      } else {
+        kahnRevealedCount++;
+      }
+      render();
+    };
+
+    render();
+  </script>
+</body>
+</html>
