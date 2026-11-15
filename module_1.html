@@ -367,8 +367,8 @@
 
     <section class="tau-panel">
       <div class="tau-header">
-        <h4>Deterministic Ordering Output τ(B) — Monotonic Prefix + Kahn's Topological Sort (xsort)</h4>
-        <span class="tau-sub" id="tauRuleNote">Purple = Locked L₁ Prefix (never reordered) · Emerald = Newly finalized cone(L₂) \ cone(L₁) sorted by (Round, Miner)</span>
+        <h4>Illustrative Ordering Output τ(B) — Monotonic Prefix + Kahn's Topological Sort (xsort)</h4>
+        <span class="tau-sub" id="tauRuleNote">Purple = locked L₁ prefix · Emerald = illustrative topological order of cone(L₂) \ cone(L₁); Rust xsort breaks ties by consensus identity</span>
       </div>
       <div class="tau-stream" id="tauStream"></div>
     </section>
@@ -382,7 +382,7 @@
         <div><strong>Round-Robin Leader:</strong> <span id="inspElection">Leader(w) = Miner ((w - 1) mod 4) + 1</span></div>
         <div><strong>Direct Pointers (Ack):</strong> <span id="inspParents">Hover a block</span></div>
         <div><strong>Causal Cone (Obs):</strong> <span id="inspAncestors">Hover a block</span></div>
-        <div><strong>Kahn's xsort Tie-Break:</strong> <span>In-degree 0 → Lowest Round → Lowest Miner ID</span></div>
+        <div><strong>Kahn's xsort Tie-Break:</strong> <span>Rust chooses the lowest consensus identity among ready blocks; this diagram uses a fixed illustrative sequence.</span></div>
       </div>
     </section>
   </div>
@@ -537,7 +537,7 @@
 
     // Kahn's xsort sequence for Step 7:
     // Prefix cone(L1) = [b0, m1_r1]
-    // Delta cone(L2) \ cone(L1) sorted by Kahn's algorithm (tie-break: round asc, miner asc)
+    // Illustrative topological order of cone(L2) \ cone(L1); Rust xsort ties use consensus identity.
     const L1_PREFIX_IDS = ["b0", "m1_r1"];
     const L2_DELTA_IDS = [
       "m2_r1", "m3_r1", "m4_r1",

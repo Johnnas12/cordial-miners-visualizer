@@ -246,6 +246,7 @@
     .node-group.dimmed { opacity: 0.2; }
     .node-card { rx: 10; ry: 10; stroke-width: 2; transition: filter 0.15s ease; }
     .node-card.excluded-card { stroke-dasharray: 5 3; opacity: 0.65; }
+    .node-card.summary-card { stroke-dasharray: 6 4; }
 
     .node-group:hover .node-card,
     .node-group.hovered .node-card {
@@ -302,6 +303,17 @@
       color: #fca5a5;
       text-decoration: line-through;
     }
+
+    .excluded-stream {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+    }
+
+    .excluded-stream[hidden] { display: none; }
 
     .tau-arrow { color: var(--muted); font-size: 0.85rem; }
 
@@ -377,6 +389,7 @@
       <span class="legend-item"><i class="dot" style="background:var(--approver)"></i>Approver</span>
       <span class="legend-item"><i class="dot" style="background:var(--ratifier)"></i>Ratifier</span>
       <span class="legend-item"><i class="dot" style="background:var(--super)"></i>Super-Ratifier (Final)</span>
+      <span class="legend-item"><i class="dot" style="background:var(--super)"></i>R5–R7 cards summarize three rounds</span>
       <span class="legend-item"><i class="line-solid"></i>Hover: Direct Pointer (Ack)</span>
       <span class="legend-item"><i class="line-dashed"></i>Hover: Causal Cone (Obs)</span>
     </div>
@@ -391,6 +404,11 @@
         <span class="tau-sub">Equivocating blocks stay in the closed DAG as proof, but are deterministically excluded by τ(B) before Kahn's xsort</span>
       </div>
       <div class="tau-stream" id="tauStream"></div>
+      <div class="excluded-stream" id="excludedStream" hidden>
+        <span class="tau-sub">Retained in the DAG, excluded from τ(B):</span>
+        <span class="tau-chip excluded">M1·R1 (Fork A)</span>
+        <span class="tau-chip excluded">M1·R1 (Fork B)</span>
+      </div>
     </section>
 
     <section class="inspector">
@@ -424,7 +442,7 @@
       "R2 · Fork Exposed",
       "R3 · Wave 1 Fails",
       "R4 · Clean Leader L₂",
-      "R5–R7 · Finalize & Exclude"
+      "R5–R7 · Sequence Summary"
     ];
 
     const STEPS = [
@@ -563,18 +581,18 @@
         // Round 5-7 summary progression (Step 5)
         {
           id: "m2_r5", minStep: 5, col: 5, miner: 1, offsetY: 0,
-          code: "M2 · R5–R7", role: "Approver → Super-Ratifier", type: "super", parents: ["m2_r4", "m3_r4", "m4_r4"],
-          desc: "Honest quorum (M2, M3, M4) approves L₂ in R5, ratifies L₂ in R6, and super-ratifies L₂ in R7—triggering τ(B) fork exclusion!"
+          code: "M2 · R5–R7", role: "3-round summary", type: "super", summary: true, parents: ["m2_r4", "m3_r4", "m4_r4"],
+          desc: "Visual summary, not a single block: the honest quorum approves L₂ in R5, ratifies it in R6, and super-ratifies it in R7."
         },
         {
           id: "m3_r5", minStep: 5, col: 5, miner: 2, offsetY: 0,
-          code: "M3 · R5–R7", role: "Approver → Super-Ratifier", type: "super", parents: ["m2_r4", "m3_r4", "m4_r4"],
-          desc: "Completes 3/4 honest quorum to finalize L₂ and exclude Miner 1's forks."
+          code: "M3 · R5–R7", role: "3-round summary", type: "super", summary: true, parents: ["m2_r4", "m3_r4", "m4_r4"],
+          desc: "Visual summary of three distinct rounds, not a single block. The honest quorum finalizes L₂ and excludes Miner 1's forks from τ(B)."
         },
         {
           id: "m4_r5", minStep: 5, col: 5, miner: 3, offsetY: 0,
-          code: "M4 · R5–R7", role: "Approver → Super-Ratifier", type: "super", parents: ["m2_r4", "m3_r4", "m4_r4"],
-          desc: "Completes 3/4 honest quorum to finalize L₂ and exclude Miner 1's forks."
+          code: "M4 · R5–R7", role: "3-round summary", type: "super", summary: true, parents: ["m2_r4", "m3_r4", "m4_r4"],
+          desc: "Visual summary of three distinct rounds, not a single block. The honest quorum finalizes L₂ and excludes Miner 1's forks from τ(B)."
         }
       ].filter(n => n.minStep <= step);
     }
@@ -601,6 +619,7 @@
 
     function renderTau() {
       const stream = document.getElementById("tauStream");
+      document.getElementById("excludedStream").hidden = currentStep < 5;
       stream.innerHTML = "";
 
       if (currentStep < 5) {
@@ -615,8 +634,6 @@
 
       const ordered = [
         { label: "Genesis b₀", cls: "clean" },
-        { label: "M1·R1 (Fork A) — EXCLUDED", cls: "excluded" },
-        { label: "M1·R1 (Fork B) — EXCLUDED", cls: "excluded" },
         { label: "M2·R1", cls: "clean" },
         { label: "M3·R1", cls: "clean" },
         { label: "M4·R1", cls: "clean" },
@@ -800,7 +817,7 @@
         rect.setAttribute("height", boxH);
         rect.setAttribute("fill", "#0f172a");
         rect.setAttribute("stroke", color);
-        rect.setAttribute("class", "node-card" + (n.excluded ? " excluded-card" : ""));
+        rect.setAttribute("class", "node-card" + (n.excluded ? " excluded-card" : "") + (n.summary ? " summary-card" : ""));
 
         const codeText = document.createElementNS("http://www.w3.org/2000/svg", "text");
         codeText.setAttribute("x", n.x);
