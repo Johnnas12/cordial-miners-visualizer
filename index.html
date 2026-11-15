@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cordial Miners — Interactive Consensus & Blocklace Explorer</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --surface: #111827;
+      --surface-alt: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --genesis: #a855f7;
+      --leader: #f59e0b;
+      --ratifier: #10b981;
+      --equiv: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 32px 24px;
+    }
+
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* Hero Section */
+    .hero {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(168, 85, 247, 0.08));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .paper-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      background: rgba(56, 189, 248, 0.14);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: var(--accent);
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .paper-badge:hover { background: rgba(56, 189, 248, 0.22); }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+    }
+
+    .hero p {
+      color: #cbd5e1;
+      font-size: 1.02rem;
+      max-width: 780px;
+    }
+
+    /* Concept Pipeline Strip */
+    .pipeline-strip {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .pipe-step {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    .pipe-step span {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .pipe-step strong {
+      font-size: 0.88rem;
+      color: var(--text);
+    }
+
+    /* Module Cards Grid */
+    .section-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: -16px;
+    }
+
+    .modules-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .modules-grid { grid-template-columns: 1fr; }
+      .pipeline-strip { grid-template-columns: 1fr; }
+    }
+
+    .module-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 20px;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+
+    .module-card.live:hover {
+      transform: translateY(-3px);
+      border-color: var(--accent);
+    }
+
+    .module-card.upcoming {
+      opacity: 0.72;
+    }
+
+    .card-top {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .mod-num {
+      font-size: 0.78rem;
+      font-weight: 800;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .status-pill {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+
+    .status-pill.ready {
+      background: rgba(16, 185, 129, 0.16);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    .status-pill.soon {
+      background: rgba(148, 163, 184, 0.14);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .module-card h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .module-card p {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .topic-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .tag {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: #cbd5e1;
+      font-size: 0.74rem;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
+    .launch-btn {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 11px 16px;
+      border-radius: 9px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+
+    .launch-btn.primary {
+      background: var(--accent);
+      color: #0b1120;
+    }
+
+    .launch-btn.primary:hover {
+      background: #7dd3fc;
+    }
+
+    .launch-btn.disabled {
+      background: var(--surface-alt);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      pointer-events: none;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="hero">
+      <a class="paper-badge" href="https://arxiv.org/abs/2205.09174" target="_blank" rel="noopener">
+        Reference Paper · Keidar et al. (arXiv:2205.09174) ↗
+      </a>
+      <h1>Cordial Miners: Interactive Blocklace Visualizer</h1>
+      <p>
+        An incremental, hands-on visual guide to DAG-based consensus without Reliable Broadcast. Start with the clean 3-round eventual synchrony pipeline, then explore network delays and Byzantine equivocation pruning.
+      </p>
+    </section>
+
+    <div class="pipeline-strip">
+      <div class="pipe-step"><span>Stage 1</span><strong>Round-Robin Leader</strong></div>
+      <div class="pipe-step"><span>Stage 2</span><strong>Blocklace Approval</strong></div>
+      <div class="pipe-step"><span>Stage 3</span><strong>Ratification (≥2f+1)</strong></div>
+      <div class="pipe-step"><span>Stage 4</span><strong>Super-Ratify → Final</strong></div>
+      <div class="pipe-step"><span>Stage 5</span><strong>Monotonic τ(B) xsort</strong></div>
+    </div>
+
+    <h2 class="section-title">Interactive Learning Path</h2>
+
+    <section class="modules-grid">
+      <!-- Module 1 -->
+      <article class="module-card live">
+        <div class="card-top">
+          <div class="card-header">
+            <span class="mod-num">Module 01 · Start Here</span>
+            <span class="status-pill ready">● Live</span>
+          </div>
+          <h2>Eventual Synchrony & 3-Round Wave Finality</h2>
+          <p>
+            Step round-by-round from Genesis (b₀) through Round-Robin leader selection, Approval, Ratification, Super-Ratification, and Kahn's topological sort (xsort).
+          </p>
+          <div class="topic-tags">
+            <span class="tag">Genesis b₀</span>
+            <span class="tag">Round-Robin Leader</span>
+            <span class="tag">3-Round Waves</span>
+            <span class="tag">τ(B) Monotonicity</span>
+          </div>
+        </div>
+        <a href="module_1.html" class="launch-btn primary">Launch Module 01 →</a>
+      </article>
+
+      <!-- Module 2 -->
+      <article class="module-card upcoming">
+        <div class="card-top">
+          <div class="card-header">
+            <span class="mod-num">Module 02</span>
+            <span class="status-pill soon">Next Up</span>
+          </div>
+          <h2>Cordial Dissemination & Delayed Tip Rescue</h2>
+          <p>
+            See how miners advance on a 2f+1 supermajority without stalling for stragglers, and how unreferenced tips get swept back into the causal cone.
+          </p>
+          <div class="topic-tags">
+            <span class="tag">Supermajority Quorum</span>
+            <span class="tag">Tip Pointers</span>
+            <span class="tag">Closed Blocklace</span>
+          </div>
+        </div>
+        <span class="launch-btn disabled">Coming Next</span>
+      </article>
+
+      <!-- Module 3 -->
+      <article class="module-card upcoming">
+        <div class="card-top">
+          <div class="card-header">
+            <span class="mod-num">Module 03</span>
+            <span class="status-pill soon">Planned</span>
+          </div>
+          <h2>Byzantine Equivocation & Deterministic Pruning</h2>
+          <p>
+            Simulate a malicious miner broadcasting conflicting blocks in the same round and watch honest miners withhold approval and strip forks in τ(B).
+          </p>
+          <div class="topic-tags">
+            <span class="tag">Fork Detection</span>
+            <span class="tag">No Reliable Broadcast</span>
+            <span class="tag">Fork Pruning</span>
+          </div>
+        </div>
+        <span class="launch-btn disabled">Coming Soon</span>
+      </article>
+    </section>
+
+    <footer>
+      <span>Hover over any node inside the visualizers to inspect direct hash pointers (acknowledgments) and transitive causal cones (observations).</span>
+      <span>n = 4 Miners · f = 1 Fault · Supermajority = 3</span>
+    </footer>
+  </div>
+</body>
+</html>
