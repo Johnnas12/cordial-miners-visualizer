@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cordial Miners — 03. Byzantine Equivocation Detection & Exclusion</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --surface: #111827;
+      --surface-alt: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --genesis: #a855f7;
+      --equiv: #ef4444;
+      --leader: #f59e0b;
+      --approver: #3b82f6;
+      --ratifier: #10b981;
+      --super: #ec4899;
+      --neutral: #64748b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1380px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Top Nav */
+    .top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 0.85rem;
+    }
+
+    .top-nav a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .top-nav a:hover { text-decoration: underline; }
+
+    /* Header */
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .module-tag {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--equiv);
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    h1 { font-size: 1.42rem; font-weight: 700; letter-spacing: -0.02em; }
+    .subtitle { color: var(--muted); font-size: 0.91rem; margin-top: 2px; }
+
+    .params-badge {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    /* Stepper */
+    .control-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .control-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .step-counter {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--equiv);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: block;
+    }
+
+    .step-title { font-size: 1.08rem; font-weight: 700; }
+
+    .btn-group { display: flex; gap: 10px; }
+
+    button {
+      background: var(--surface-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+    button.primary {
+      background: var(--accent);
+      color: #0b1120;
+      border-color: var(--accent);
+    }
+
+    button.primary:hover:not(:disabled) { background: #7dd3fc; color: #0b1120; }
+    button:disabled { opacity: 0.38; cursor: not-allowed; }
+
+    .step-pills {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+    }
+
+    .step-pill {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .step-pill.done {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: rgba(56, 189, 248, 0.06);
+    }
+
+    .step-pill.active {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.18);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .step-pill span { display: block; }
+    .step-pill .r-tag { font-size: 0.72rem; font-weight: 700; color: var(--accent); }
+    .step-pill .r-name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      padding: 2px 4px;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .line-solid { width: 20px; border-top: 2.5px solid var(--accent); display: inline-block; }
+    .line-dashed { width: 20px; border-top: 2px dashed var(--genesis); display: inline-block; }
+
+    /* DAG Canvas */
+    .dag-viewport {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow-x: auto;
+      padding: 10px;
+    }
+
+    svg {
+      display: block;
+      width: 1620px;
+      height: 620px;
+    }
+
+    .lane-band { fill: rgba(30, 41, 59, 0.35); rx: 10; }
+    .wave-band {
+      fill: rgba(56, 189, 248, 0.03);
+      stroke: rgba(56, 189, 248, 0.18);
+      stroke-dasharray: 4 4;
+      rx: 10;
+    }
+
+    .edge {
+      fill: none;
+      stroke: #475569;
+      stroke-width: 1.6;
+      opacity: 0.3;
+      transition: opacity 0.15s ease, stroke 0.15s ease, stroke-width 0.15s ease;
+    }
+
+    .edge.fork-edge {
+      stroke: var(--equiv);
+      stroke-width: 1.8;
+      opacity: 0.55;
+    }
+
+    .edge.direct { stroke: var(--accent); stroke-width: 3.2; opacity: 1; }
+    .edge.transitive { stroke: var(--genesis); stroke-width: 2.2; stroke-dasharray: 6 4; opacity: 0.92; }
+    .edge.dimmed { opacity: 0.06; }
+
+    .node-group { cursor: pointer; transition: opacity 0.15s ease; }
+    .node-group.dimmed { opacity: 0.2; }
+    .node-card { rx: 10; ry: 10; stroke-width: 2; transition: filter 0.15s ease; }
+    .node-card.excluded-card { stroke-dasharray: 5 3; opacity: 0.65; }
+
+    .node-group:hover .node-card,
+    .node-group.hovered .node-card {
+      filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.75));
+    }
+
+    /* Exclusion & Ordering Output Bar */
+    .tau-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .tau-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tau-header h4 { font-size: 0.95rem; color: #34d399; }
+    .tau-sub { font-size: 0.82rem; color: var(--muted); }
+
+    .tau-stream {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+    }
+
+    .tau-chip {
+      padding: 5px 11px;
+      border-radius: 7px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .tau-chip.clean {
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(16, 185, 129, 0.5);
+      color: #6ee7b7;
+    }
+
+    .tau-chip.excluded {
+      background: rgba(239, 68, 68, 0.14);
+      border: 1px dashed rgba(239, 68, 68, 0.55);
+      color: #fca5a5;
+      text-decoration: line-through;
+    }
+
+    .tau-arrow { color: var(--muted); font-size: 0.85rem; }
+
+    /* Bottom Inspector */
+    .inspector {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 22px;
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 920px) {
+      .inspector { grid-template-columns: 1fr; }
+      .step-pills { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .inspector h3 { font-size: 1.04rem; color: var(--accent); margin-bottom: 6px; }
+    .inspector p { font-size: 0.92rem; color: #e2e8f0; }
+
+    .details-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 0.85rem;
+    }
+
+    .details-box strong { color: var(--muted); display: inline-block; min-width: 175px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a href="index.html">← All Modules</a>
+      <span style="color:#94a3b8; font-weight:600;">Module 03 of 03 · Sections 2 & 4: Equivocation Detection & Exclusion</span>
+      <a href="module_2.html">← Module 02: Dissemination</a>
+    </nav>
+
+    <header>
+      <div>
+        <span class="module-tag">Module 03 · Safety Without Reliable Broadcast</span>
+        <h1>Byzantine Equivocation Detection & Deterministic Exclusion in τ(B)</h1>
+        <p class="subtitle">Watch Byzantine Miner 1 broadcast two conflicting Round 1 blocks, see how honest miners withhold approval, and trace how τ(B) excludes forks deterministically.</p>
+      </div>
+      <span class="params-badge">n = 4 · f = 1 Byzantine (Miner 1) · Zero Reliable Broadcast</span>
+    </header>
+
+    <section class="control-panel">
+      <div class="control-header">
+        <div>
+          <span class="step-counter" id="stepCounter">Step 0 of 5</span>
+          <h2 class="step-title" id="stepTitle">Step 0: Shared Genesis Block (b₀)</h2>
+        </div>
+        <div class="btn-group">
+          <button id="prevBtn">← Previous</button>
+          <button id="nextBtn" class="primary">Next Step →</button>
+        </div>
+      </div>
+      <div class="step-pills" id="stepPills"></div>
+    </section>
+
+    <div class="legend">
+      <span class="legend-item"><i class="dot" style="background:var(--genesis)"></i>Genesis (b₀)</span>
+      <span class="legend-item"><i class="dot" style="background:var(--equiv)"></i>Byzantine Fork / Detected</span>
+      <span class="legend-item"><i class="dot" style="background:var(--leader)"></i>Clean Wave 2 Leader (L₂)</span>
+      <span class="legend-item"><i class="dot" style="background:var(--approver)"></i>Approver</span>
+      <span class="legend-item"><i class="dot" style="background:var(--ratifier)"></i>Ratifier</span>
+      <span class="legend-item"><i class="dot" style="background:var(--super)"></i>Super-Ratifier (Final)</span>
+      <span class="legend-item"><i class="line-solid"></i>Hover: Direct Pointer (Ack)</span>
+      <span class="legend-item"><i class="line-dashed"></i>Hover: Causal Cone (Obs)</span>
+    </div>
+
+    <div class="dag-viewport" id="dagViewport">
+      <svg id="dagSvg" viewBox="0 0 1620 620"></svg>
+    </div>
+
+    <section class="tau-panel">
+      <div class="tau-header">
+        <h4>Deterministic Ordering & Equivocation Exclusion Output τ(B)</h4>
+        <span class="tau-sub">Equivocating blocks stay in the closed DAG as proof, but are deterministically excluded by τ(B) before Kahn's xsort</span>
+      </div>
+      <div class="tau-stream" id="tauStream"></div>
+    </section>
+
+    <section class="inspector">
+      <div>
+        <h3 id="inspTitle">Equivocation Mechanics (Hover any block to inspect pointers)</h3>
+        <p id="inspDesc"></p>
+      </div>
+      <div class="details-box">
+        <div><strong>Equivocation Rule:</strong> <span>Two incomparable blocks b ≠ b' from same miner</span></div>
+        <div><strong>Approval Rule (Sec 4):</strong> <span>Approve L only if no equivocation by creator(L)</span></div>
+        <div><strong>Direct Pointers (Ack):</strong> <span id="inspParents">Hover a block</span></div>
+        <div><strong>Causal Cone (Obs):</strong> <span id="inspAncestors">Hover a block</span></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const COLORS = {
+      genesis: "#a855f7",
+      equivocation: "#ef4444",
+      leader: "#f59e0b",
+      approver: "#3b82f6",
+      ratifier: "#10b981",
+      super: "#ec4899",
+      neutral: "#64748b"
+    };
+
+    const ROUNDS = [
+      "R0 · Genesis",
+      "R1 · Miner 1 Forks!",
+      "R2 · Fork Exposed",
+      "R3 · Wave 1 Fails",
+      "R4 · Clean Leader L₂",
+      "R5–R7 · Finalize & Exclude"
+    ];
+
+    const STEPS = [
+      {
+        pillTag: "Step 0",
+        pillName: "Genesis b₀",
+        title: "Step 0: Shared Genesis Block (b₀)",
+        desc: "All 4 miners initialize with deterministic Genesis b₀. Miner 1 is Byzantine (f = 1), while Miners 2, 3, and 4 are honest."
+      },
+      {
+        pillTag: "Step 1",
+        pillName: "Miner 1 Forks",
+        title: "Step 1: Round 1 — Byzantine Miner 1 Broadcasts Conflicting Forks (Fork A & Fork B)",
+        desc: "Because Cordial Miners does NOT run Reliable Broadcast, Byzantine Miner 1 signs two conflicting Round 1 blocks pointing to b₀: Fork A (sent to Miner 2) and Fork B (sent to Miner 3). Miner 1 is the Wave 1 Round-Robin leader, so Wave 1 now has an equivocating leader!"
+      },
+      {
+        pillTag: "Step 2",
+        pillName: "Fork Exposed",
+        title: "Step 2: Round 2 — Honest Miners Detect the Fork & Withhold Approval",
+        desc: "Miner 4 receives BOTH Fork A and Fork B in Round 1 and references both in M4·R2. By the Approval definition (Section 4), a block only approves a leader if it observes NO equivocation by that leader. Thus M4·R2 refuses to approve either fork—preventing either Fork A or Fork B from reaching a supermajority of 3 approvals!"
+      },
+      {
+        pillTag: "Step 3",
+        pillName: "Wave 1 Skips",
+        title: "Step 3: Round 3 — Wave 1 Produces 0 Ratifiers (Safety Preserved)",
+        desc: "In Round 3, every honest block transitively observes both Fork A and Fork B (via M2·R2, M3·R2, and M4·R2). Because neither fork received ≥3 approvals in Round 2, Wave 1 produces ZERO Ratifiers—preventing any split decision on Miner 1's conflicting blocks."
+      },
+      {
+        pillTag: "Step 4",
+        pillName: "Clean Leader L₂",
+        title: "Step 4: Round 4 — Round-Robin Advances to Honest Leader L₂ (Miner 2)",
+        desc: "Wave 2 begins at Round 4 with honest Miner 2 (M2·R4) as Wave Leader L₂. Notice that M2·R4 transitively observes the entire Wave 1 history—including honest blocks M2·R1, M3·R1, M4·R1 AND both conflicting forks M1·R1a and M1·R1b."
+      },
+      {
+        pillTag: "Step 5",
+        pillName: "Finality & Exclusion",
+        title: "Step 5: Rounds 5–7 — L₂ Finalizes & τ(B) Deterministically Excludes Fork A & Fork B",
+        desc: "Honest L₂ collects 3/4 Approvals (R5), 3/4 Ratifiers (R6), and Super-Ratification (R7) to become Final! Both forks remain in the closed blocklace as permanent proof, while τ(B) detects that M1·R1a and M1·R1b are incomparable blocks from Miner 1 and deterministically excludes BOTH before running Kahn's xsort!"
+      }
+    ];
+
+    function getNodesForStep(step) {
+      const excluded = step >= 5;
+      return [
+        {
+          id: "b0", minStep: 0, col: 0, miner: 1.5, offsetY: 0,
+          code: "Genesis b₀", role: "Root Anchor", type: "genesis", parents: [],
+          desc: "Deterministic Genesis root shared by all miners."
+        },
+        // Round 1 (Byzantine Miner 1 forks into A and B)
+        {
+          id: "m1_r1a", minStep: 1, col: 1, miner: 0, offsetY: -32,
+          code: "M1 · R1 (Fork A)",
+          role: excluded ? "Excluded by τ(B)" : "Byzantine Fork A",
+          type: "equivocation",
+          excluded,
+          parents: ["b0"],
+          desc: "First conflicting Round 1 block signed by Byzantine Miner 1 (sent to Miner 2). Remains in the closed DAG as proof, but is deterministically excluded by τ(B) because M1·R1b also exists in cone(L₂)."
+        },
+        {
+          id: "m1_r1b", minStep: 1, col: 1, miner: 0, offsetY: 32,
+          code: "M1 · R1 (Fork B)",
+          role: excluded ? "Excluded by τ(B)" : "Byzantine Fork B",
+          type: "equivocation",
+          excluded,
+          parents: ["b0"],
+          desc: "Second conflicting Round 1 block signed by Byzantine Miner 1 (sent to Miner 3). Remains in the closed DAG as proof, but is deterministically excluded by τ(B)."
+        },
+        {
+          id: "m2_r1", minStep: 1, col: 1, miner: 1, offsetY: 0,
+          code: "M2 · R1", role: "Honest Block", type: "neutral", parents: ["b0"],
+          desc: "Honest Round 1 block by Miner 2. Preserved and committed when L₂ finalizes."
+        },
+        {
+          id: "m3_r1", minStep: 1, col: 1, miner: 2, offsetY: 0,
+          code: "M3 · R1", role: "Honest Block", type: "neutral", parents: ["b0"],
+          desc: "Honest Round 1 block by Miner 3. Preserved and committed when L₂ finalizes."
+        },
+        {
+          id: "m4_r1", minStep: 1, col: 1, miner: 3, offsetY: 0,
+          code: "M4 · R1", role: "Honest Block", type: "neutral", parents: ["b0"],
+          desc: "Honest Round 1 block by Miner 4. Preserved and committed when L₂ finalizes."
+        },
+
+        // Round 2 (Fork exposure)
+        {
+          id: "m2_r2", minStep: 2, col: 2, miner: 1, offsetY: 0,
+          code: "M2 · R2", role: "Sees Fork A Only", type: "neutral", parents: ["m1_r1a", "m2_r1", "m3_r1"],
+          desc: "Miner 2 only saw Fork A in Round 1 (1 vote for Fork A—far short of the 3 approvals needed)."
+        },
+        {
+          id: "m3_r2", minStep: 2, col: 2, miner: 2, offsetY: 0,
+          code: "M3 · R2", role: "Sees Fork B Only", type: "neutral", parents: ["m1_r1b", "m3_r1", "m4_r1"],
+          desc: "Miner 3 only saw Fork B in Round 1 (1 vote for Fork B—far short of the 3 approvals needed)."
+        },
+        {
+          id: "m4_r2", minStep: 2, col: 2, miner: 3, offsetY: 0,
+          code: "M4 · R2", role: "Exposes Both Forks!", type: "equivocation", parents: ["m1_r1a", "m1_r1b", "m2_r1", "m4_r1"],
+          desc: "Miner 4 received BOTH Fork A and Fork B! Including both pointers in M4·R2 broadcasts cryptographic proof of Miner 1's equivocation to all peers."
+        },
+
+        // Round 3 (Wave 1 fails to ratify either fork)
+        {
+          id: "m2_r3", minStep: 3, col: 3, miner: 1, offsetY: 0,
+          code: "M2 · R3", role: "0 Ratifications", type: "neutral", parents: ["m2_r2", "m3_r2", "m4_r2"],
+          desc: "Transitively observes both Fork A and Fork B via M4·R2. Wave 1 produces 0 Ratifiers, safely skipping the Byzantine leader."
+        },
+        {
+          id: "m3_r3", minStep: 3, col: 3, miner: 2, offsetY: 0,
+          code: "M3 · R3", role: "0 Ratifications", type: "neutral", parents: ["m2_r2", "m3_r2", "m4_r2"],
+          desc: "Transitively observes both forks; Wave 1 ends cleanly with no commit."
+        },
+        {
+          id: "m4_r3", minStep: 3, col: 3, miner: 3, offsetY: 0,
+          code: "M4 · R3", role: "0 Ratifications", type: "neutral", parents: ["m2_r2", "m3_r2", "m4_r2"],
+          desc: "Transitively observes both forks; Wave 1 ends cleanly with no commit."
+        },
+
+        // Round 4 (Clean Wave 2 Leader L2)
+        {
+          id: "m2_r4", minStep: 4, col: 4, miner: 1, offsetY: 0,
+          code: "M2 · R4", role: "Clean Leader L₂", type: "leader", parents: ["m2_r3", "m3_r3", "m4_r3"],
+          desc: "Round-Robin advances to honest Miner 2 (Leader L₂). Its causal cone contains all honest R1–R3 blocks plus both forks for deterministic exclusion."
+        },
+        {
+          id: "m3_r4", minStep: 4, col: 4, miner: 2, offsetY: 0,
+          code: "M3 · R4", role: "Wave 2 Block", type: "neutral", parents: ["m2_r3", "m3_r3", "m4_r3"],
+          desc: "Honest Round 4 block."
+        },
+        {
+          id: "m4_r4", minStep: 4, col: 4, miner: 3, offsetY: 0,
+          code: "M4 · R4", role: "Wave 2 Block", type: "neutral", parents: ["m2_r3", "m3_r3", "m4_r3"],
+          desc: "Honest Round 4 block."
+        },
+
+        // Round 5-7 summary progression (Step 5)
+        {
+          id: "m2_r5", minStep: 5, col: 5, miner: 1, offsetY: 0,
+          code: "M2 · R5–R7", role: "Approver → Super-Ratifier", type: "super", parents: ["m2_r4", "m3_r4", "m4_r4"],
+          desc: "Honest quorum (M2, M3, M4) approves L₂ in R5, ratifies L₂ in R6, and super-ratifies L₂ in R7—triggering τ(B) fork exclusion!"
+        },
+        {
+          id: "m3_r5", minStep: 5, col: 5, miner: 2, offsetY: 0,
+          code: "M3 · R5–R7", role: "Approver → Super-Ratifier", type: "super", parents: ["m2_r4", "m3_r4", "m4_r4"],
+          desc: "Completes 3/4 honest quorum to finalize L₂ and exclude Miner 1's forks."
+        },
+        {
+          id: "m4_r5", minStep: 5, col: 5, miner: 3, offsetY: 0,
+          code: "M4 · R5–R7", role: "Approver → Super-Ratifier", type: "super", parents: ["m2_r4", "m3_r4", "m4_r4"],
+          desc: "Completes 3/4 honest quorum to finalize L₂ and exclude Miner 1's forks."
+        }
+      ].filter(n => n.minStep <= step);
+    }
+
+    let currentStep = 0;
+    let hoveredId = null;
+
+    const svg = document.getElementById("dagSvg");
+    const pillsEl = document.getElementById("stepPills");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+
+    function getAncestors(id, map, set = new Set()) {
+      const node = map.get(id);
+      if (!node) return set;
+      for (const pid of node.parents) {
+        if (!set.has(pid)) {
+          set.add(pid);
+          getAncestors(pid, map, set);
+        }
+      }
+      return set;
+    }
+
+    function renderTau() {
+      const stream = document.getElementById("tauStream");
+      stream.innerHTML = "";
+
+      if (currentStep < 5) {
+        const msg = currentStep === 0
+          ? `<span class="tau-chip clean">Genesis b₀</span><span class="tau-sub" style="margin-left:8px;">(Initialized)</span>`
+          : currentStep < 4
+          ? `<span class="tau-chip clean">Genesis b₀</span><span class="tau-sub" style="margin-left:8px;">Wave 1 Leader (Miner 1) equivocated → 0 Ratifications → τ(B) safely waits for Wave 2</span>`
+          : `<span class="tau-chip clean">Genesis b₀</span><span class="tau-sub" style="margin-left:8px;">Clean Leader L₂ (M2·R4) proposed → advancing to Super-Ratification...</span>`;
+        stream.innerHTML = msg;
+        return;
+      }
+
+      const ordered = [
+        { label: "Genesis b₀", cls: "clean" },
+        { label: "M1·R1 (Fork A) — EXCLUDED", cls: "excluded" },
+        { label: "M1·R1 (Fork B) — EXCLUDED", cls: "excluded" },
+        { label: "M2·R1", cls: "clean" },
+        { label: "M3·R1", cls: "clean" },
+        { label: "M4·R1", cls: "clean" },
+        { label: "M2·R2", cls: "clean" },
+        { label: "M3·R2", cls: "clean" },
+        { label: "M4·R2", cls: "clean" },
+        { label: "M2·R3", cls: "clean" },
+        { label: "M3·R3", cls: "clean" },
+        { label: "M4·R3", cls: "clean" },
+        { label: "M2·R4 (L₂)", cls: "clean" }
+      ];
+
+      ordered.forEach((item, idx) => {
+        if (idx > 0) {
+          const arr = document.createElement("span");
+          arr.className = "tau-arrow";
+          arr.textContent = "→";
+          stream.appendChild(arr);
+        }
+        const chip = document.createElement("span");
+        chip.className = `tau-chip ${item.cls}`;
+        chip.textContent = item.label;
+        stream.appendChild(chip);
+      });
+    }
+
+    function renderControls() {
+      const s = STEPS[currentStep];
+      document.getElementById("stepCounter").textContent = `Step ${currentStep} of ${STEPS.length - 1}`;
+      document.getElementById("stepTitle").textContent = s.title;
+      document.getElementById("inspDesc").textContent = s.desc;
+
+      prevBtn.disabled = currentStep === 0;
+      nextBtn.disabled = currentStep === STEPS.length - 1;
+
+      pillsEl.innerHTML = "";
+      STEPS.forEach((step, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "step-pill" + (idx === currentStep ? " active" : idx < currentStep ? " done" : "");
+        btn.innerHTML = `<span class="r-tag">${step.pillTag}</span><span class="r-name">${step.pillName}</span>`;
+        btn.onclick = () => {
+          currentStep = idx;
+          hoveredId = null;
+          render();
+        };
+        pillsEl.appendChild(btn);
+      });
+    }
+
+    function renderDAG() {
+      svg.innerHTML = "";
+
+      const leftPad = 155;
+      const colGap = 265;
+      const topPad = 95;
+      const laneHeight = 132;
+      const boxW = 152;
+      const boxH = 50;
+
+      // Wave bands
+      const drawWave = (c1, c2, text, color) => {
+        const x = leftPad + c1 * colGap - 88;
+        const w = (c2 - c1) * colGap + 176;
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", x);
+        rect.setAttribute("y", 10);
+        rect.setAttribute("width", w);
+        rect.setAttribute("height", 595);
+        rect.setAttribute("class", "wave-band");
+        svg.appendChild(rect);
+
+        const lbl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        lbl.setAttribute("x", x + w / 2);
+        lbl.setAttribute("y", 26);
+        lbl.setAttribute("text-anchor", "middle");
+        lbl.setAttribute("fill", color);
+        lbl.setAttribute("font-size", "11.5");
+        lbl.setAttribute("font-weight", "700");
+        lbl.textContent = text;
+        svg.appendChild(lbl);
+      };
+
+      drawWave(1, 3, "WAVE 1 (Byzantine Leader M1 Forks → Safely Skipped)", "#fca5a5");
+      drawWave(4, 5, "WAVE 2 (Honest Leader M2 → Finalizes & Excludes Forks)", "#38bdf8");
+
+      // Miner swimlanes
+      for (let m = 0; m < 4; m++) {
+        const y = topPad + m * laneHeight;
+        const lane = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        lane.setAttribute("x", 12);
+        lane.setAttribute("y", y - 54);
+        lane.setAttribute("width", 1596);
+        lane.setAttribute("height", 112);
+        lane.setAttribute("class", "lane-band");
+        svg.appendChild(lane);
+
+        const mLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        mLabel.setAttribute("x", 26);
+        mLabel.setAttribute("y", y + 4);
+        mLabel.setAttribute("fill", m === 0 ? "#fca5a5" : "#94a3b8");
+        mLabel.setAttribute("font-size", "13");
+        mLabel.setAttribute("font-weight", "700");
+        mLabel.textContent = m === 0 ? "Miner 1 (Byz)" : `Miner ${m + 1}`;
+        svg.appendChild(mLabel);
+      }
+
+      // Column headers
+      ROUNDS.forEach((label, idx) => {
+        const x = leftPad + idx * colGap;
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.setAttribute("x", x);
+        txt.setAttribute("y", 46);
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("fill", "#e2e8f0");
+        txt.setAttribute("font-size", "12");
+        txt.setAttribute("font-weight", "700");
+        txt.textContent = label;
+        svg.appendChild(txt);
+      });
+
+      const visibleNodes = getNodesForStep(currentStep);
+      const nodeMap = new Map(visibleNodes.map(n => [n.id, n]));
+
+      visibleNodes.forEach(n => {
+        n.x = leftPad + n.col * colGap;
+        n.y = topPad + n.miner * laneHeight + n.offsetY;
+      });
+
+      const hoveredNode = hoveredId ? nodeMap.get(hoveredId) : null;
+      const directParents = hoveredNode ? new Set(hoveredNode.parents) : new Set();
+      const ancestors = hoveredNode ? getAncestors(hoveredNode.id, nodeMap) : new Set();
+
+      // Edges
+      visibleNodes.forEach(child => {
+        child.parents.forEach(pid => {
+          const parent = nodeMap.get(pid);
+          if (!parent) return;
+
+          const startX = child.x - boxW / 2;
+          const startY = child.y;
+          const endX = parent.x + boxW / 2;
+          const endY = parent.y;
+          const bend = (startX - endX) * 0.45;
+
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("d", `M ${startX} ${startY} C ${startX - bend} ${startY}, ${endX + bend} ${endY}, ${endX} ${endY}`);
+
+          let cls = "edge";
+          if (!hoveredNode) {
+            if (parent.id === "m1_r1a" || parent.id === "m1_r1b") cls += " fork-edge";
+          } else {
+            if (child.id === hoveredNode.id && directParents.has(parent.id)) {
+              cls += " direct";
+            } else if (ancestors.has(child.id) && ancestors.has(parent.id)) {
+              cls += " transitive";
+            } else {
+              cls += " dimmed";
+            }
+          }
+          path.setAttribute("class", cls);
+          svg.appendChild(path);
+        });
+      });
+
+      // Nodes
+      visibleNodes.forEach(n => {
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        let cls = "node-group";
+        if (hoveredNode) {
+          if (n.id === hoveredNode.id) cls += " hovered";
+          else if (!ancestors.has(n.id)) cls += " dimmed";
+        }
+        g.setAttribute("class", cls);
+
+        const color = COLORS[n.type] || COLORS.neutral;
+
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", n.x - boxW / 2);
+        rect.setAttribute("y", n.y - boxH / 2);
+        rect.setAttribute("width", boxW);
+        rect.setAttribute("height", boxH);
+        rect.setAttribute("fill", "#0f172a");
+        rect.setAttribute("stroke", color);
+        rect.setAttribute("class", "node-card" + (n.excluded ? " excluded-card" : ""));
+
+        const codeText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        codeText.setAttribute("x", n.x);
+        codeText.setAttribute("y", n.y - 5);
+        codeText.setAttribute("text-anchor", "middle");
+        codeText.setAttribute("fill", n.excluded ? "#fca5a5" : "#f8fafc");
+        codeText.setAttribute("font-size", "12");
+        codeText.setAttribute("font-weight", "700");
+        if (n.excluded) codeText.setAttribute("text-decoration", "line-through");
+        codeText.textContent = n.code;
+
+        const roleText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        roleText.setAttribute("x", n.x);
+        roleText.setAttribute("y", n.y + 14);
+        roleText.setAttribute("text-anchor", "middle");
+        roleText.setAttribute("fill", color);
+        roleText.setAttribute("font-size", "10.8");
+        roleText.setAttribute("font-weight", "600");
+        roleText.textContent = n.role;
+
+        g.appendChild(rect);
+        g.appendChild(codeText);
+        g.appendChild(roleText);
+
+        g.addEventListener("mouseenter", () => {
+          hoveredId = n.id;
+          const anc = getAncestors(n.id, nodeMap);
+          document.getElementById("inspTitle").textContent = `${n.code} — ${n.role}`;
+          document.getElementById("inspDesc").textContent = n.desc;
+          document.getElementById("inspParents").textContent = n.parents.length
+            ? n.parents.map(pid => nodeMap.get(pid)?.code || pid).join(", ")
+            : "None (Root Genesis)";
+          document.getElementById("inspAncestors").textContent = anc.size
+            ? Array.from(anc).map(aid => nodeMap.get(aid)?.code || aid).join(" ← ")
+            : "None";
+          renderDAG();
+        });
+
+        g.addEventListener("mouseleave", () => {
+          hoveredId = null;
+          const s = STEPS[currentStep];
+          document.getElementById("inspTitle").textContent = "Equivocation Mechanics (Hover any block to inspect pointers)";
+          document.getElementById("inspDesc").textContent = s.desc;
+          document.getElementById("inspParents").textContent = "Hover a block";
+          document.getElementById("inspAncestors").textContent = "Hover a block";
+          renderDAG();
+        });
+
+        svg.appendChild(g);
+      });
+    }
+
+    function render() {
+      renderControls();
+      renderTau();
+      renderDAG();
+    }
+
+    prevBtn.onclick = () => {
+      if (currentStep > 0) {
+        currentStep--;
+        hoveredId = null;
+        render();
+      }
+    };
+
+    nextBtn.onclick = () => {
+      if (currentStep < STEPS.length - 1) {
+        currentStep++;
+        hoveredId = null;
+        render();
+      }
+    };
+
+    render();
+  </script>
+</body>
+</html>
