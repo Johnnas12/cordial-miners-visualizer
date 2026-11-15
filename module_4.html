@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PoR-Weighted Quorum | Cordial Miners Visualizer</title>
+  <link rel="stylesheet" href="visualizer.css" />
+</head>
+<body>
+  <main class="container">
+    <nav class="top-nav"><a href="index.html">&larr; All modules</a><span class="module-label">Module 04 / PoR weights</span></nav>
+    <header class="intro">
+      <div class="eyebrow">Interactive quorum explorer</div>
+      <h1>Reputation changes voting weight</h1>
+      <p>Keep the same four bonded validators and change only their active voting weights. Select which validators support a block to see why approval needs more than two-thirds of the total active weight.</p>
+    </header>
+    <div class="workspace">
+      <section class="surface" aria-labelledby="snapshot-heading">
+        <div class="section-heading"><h2 id="snapshot-heading">Weight snapshot</h2><span class="muted small" id="snapshot-label"></span></div>
+        <div class="stage-buttons" id="stage-buttons" role="group" aria-label="Choose a consensus weight snapshot"></div>
+        <p class="stage-explanation" id="stage-explanation"></p>
+      </section>
+      <div class="split">
+        <section class="surface" aria-labelledby="support-heading">
+          <div class="section-heading"><h2 id="support-heading">Which validators support the block?</h2><button type="button" class="secondary-button" id="reset-support">Reset</button></div>
+          <div class="validator-list" id="validator-list"></div>
+          <p class="muted small" style="margin-top:12px">Each bar shows a validator's share of active voting weight. Checkboxes change support, not reputation.</p>
+        </section>
+        <section class="surface" aria-labelledby="decision-heading" aria-live="polite">
+          <h2 id="decision-heading">Weighted quorum gate</h2>
+          <div class="muted small">Supporting weight / total active weight</div>
+          <div class="quorum-value" id="quorum-value"></div>
+          <div class="quorum-track" aria-hidden="true"><span class="quorum-fill" id="quorum-fill"></span></div>
+          <div class="formula" id="quorum-formula"></div>
+          <div class="status" id="quorum-status"></div>
+          <p class="muted small" style="margin-top:16px">This is one weighted quorum condition used in consensus reasoning. Passing it alone does not finalize a leader or emit tau order.</p>
+        </section>
+      </div>
+      <section class="note" aria-label="Model scope">
+        These weights are illustrative, not the output of the PoR rating formula. A new weight snapshot activates only at a finalized checkpoint; it cannot rewrite a decision already made. In the penalty example, D has zero voting weight, but that alone does not change validator membership or the leader schedule. The sample never assigns faulty D one-third of active weight.
+      </section>
+    </div>
+  </main>
+  <script>
+    const validators = ["A", "B", "C", "D"];
+    const stages = [
+      { title: "Uniform", label: "Baseline", weights: [25, 25, 25, 25], explanation: "All bonded validators begin with equal weight. B, C, and D together provide 75 of 100, enough for a strict two-thirds quorum." },
+      { title: "Ratings staged", label: "Pending checkpoint", weights: [25, 25, 25, 25], explanation: "New ratings may be collected, but this decision still uses the previous finalized weight snapshot. No mid-round weight switch occurs." },
+      { title: "PoR active", label: "New checkpoint", weights: [40, 30, 20, 10], explanation: "A finalized checkpoint activates an illustrative PoR snapshot. The same B, C, D support now contributes only 60 of 100 and cannot cross the quorum gate." },
+      { title: "Penalty active", label: "Later checkpoint", weights: [40, 30, 20, 0], explanation: "Following verified evidence and a later finalized update, D contributes no voting weight. B and C alone contribute 50 of 90." }
+    ];
+    const support = new Set(["B", "C", "D"]);
+    let stageIndex = 0;
+
+    const stageButtons = document.getElementById("stage-buttons");
+    const list = document.getElementById("validator-list");
+    stages.forEach((stage, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = stage.title;
+      button.addEventListener("click", () => { stageIndex = index; render(); });
+      stageButtons.append(button);
+    });
+    document.getElementById("reset-support").addEventListener("click", () => {
+      support.clear();
+      ["B", "C", "D"].forEach(id => support.add(id));
+      render();
+    });
+
+    function render() {
+      const stage = stages[stageIndex];
+      const total = stage.weights.reduce((sum, weight) => sum + weight, 0);
+      const supportingWeight = validators.reduce((sum, id, index) => sum + (support.has(id) ? stage.weights[index] : 0), 0);
+      const passes = 3 * supportingWeight > 2 * total;
+      document.getElementById("snapshot-label").textContent = stage.label;
+      document.getElementById("stage-explanation").textContent = stage.explanation;
+      [...stageButtons.children].forEach((button, index) => button.setAttribute("aria-pressed", String(index === stageIndex)));
+      list.replaceChildren();
+      validators.forEach((id, index) => {
+        const row = document.createElement("div");
+        row.className = `validator-row${stage.weights[index] === 0 ? " ejected" : ""}`;
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.id = `support-${id}`;
+        input.checked = support.has(id);
+        input.addEventListener("change", () => { input.checked ? support.add(id) : support.delete(id); render(); });
+        const label = document.createElement("label");
+        label.htmlFor = input.id;
+        label.textContent = id;
+        const track = document.createElement("div");
+        track.className = "weight-track";
+        track.setAttribute("aria-hidden", "true");
+        const fill = document.createElement("span");
+        fill.className = "weight-fill";
+        fill.style.width = `${100 * stage.weights[index] / total}%`;
+        track.append(fill);
+        const number = document.createElement("span");
+        number.className = "weight-number";
+        number.textContent = String(stage.weights[index]);
+        row.append(input, label, track, number);
+        list.append(row);
+      });
+      document.getElementById("quorum-value").textContent = `${supportingWeight} / ${total}`;
+      const fill = document.getElementById("quorum-fill");
+      fill.style.width = `${100 * supportingWeight / total}%`;
+      fill.className = `quorum-fill ${passes ? "pass" : "fail"}`;
+      document.getElementById("quorum-formula").textContent = `3 x ${supportingWeight} ${passes ? ">" : "<="} 2 x ${total} (strictly more than 2/3)`;
+      const status = document.getElementById("quorum-status");
+      status.textContent = passes ? "Quorum reached" : "Quorum not reached";
+      status.className = `status ${passes ? "pass" : "fail"}`;
+    }
+    render();
+  </script>
+</body>
+</html>
