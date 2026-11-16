@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PoR Engine | Cordial Miners Visualizer</title>
+  <link rel="stylesheet" href="visualizer.css" />
+  <link rel="stylesheet" href="por_engine.css" />
+</head>
+<body>
+  <main class="container">
+    <nav class="top-nav"><a href="index.html">&larr; All modules</a><span class="module-label">Module 06 / PoR engine</span></nav>
+    <header class="intro">
+      <div class="eyebrow">Interactive reputation pipeline</div>
+      <h1>From ratings to voting weight</h1>
+      <p>Follow one synthetic PoR round for four validators. Change the inputs to see how ratings become a finalized reputation snapshot and, later, active Cordial voting weights.</p>
+    </header>
+
+    <div class="engine-workspace">
+      <section class="surface step-navigation" aria-labelledby="step-heading">
+        <div class="section-heading"><h2 id="step-heading">PoR calculation</h2><span class="muted small" id="step-count"></span></div>
+        <div class="stage-buttons engine-steps" id="stage-buttons" role="group" aria-label="Choose a PoR calculation stage"></div>
+      </section>
+
+      <div class="engine-layout">
+        <section class="surface input-panel" aria-labelledby="inputs-heading">
+          <div class="section-heading"><h2 id="inputs-heading">Round inputs</h2><button type="button" class="secondary-button" id="reset">Reset</button></div>
+          <div class="input-group">
+            <div class="input-heading"><h3>Ratings received by <span id="recipient-name">A</span></h3><span class="muted small">0 to 100</span></div>
+            <div class="stage-buttons recipient-buttons" id="recipient-buttons" role="group" aria-label="Choose rating recipient"></div>
+            <div id="rating-controls" class="slider-list"></div>
+          </div>
+          <div class="input-group">
+            <div class="input-heading"><h3>Previous reputation</h3><span class="muted small">R<sub>t-1</sub></span></div>
+            <div id="previous-controls" class="slider-list"></div>
+          </div>
+          <div class="input-group">
+            <div class="input-heading"><label for="alpha"><strong>New rating influence</strong></label><output id="alpha-output" for="alpha"></output></div>
+            <input id="alpha" type="range" min="0" max="100" step="5" value="60" />
+            <p class="muted small">Alpha blends this round's contribution with previous reputation.</p>
+          </div>
+          <div class="input-group fault-control">
+            <label for="equivocation"><input type="checkbox" id="equivocation" /> Assume verified equivocation by D</label>
+            <p class="muted small">The browser does not verify evidence; this toggle shows the penalty transition after evidence has been accepted.</p>
+          </div>
+        </section>
+
+        <section class="surface calculation-panel" aria-labelledby="calculation-heading" aria-live="polite">
+          <div class="section-heading"><h2 id="calculation-heading"></h2><span class="stage-number" id="stage-number"></span></div>
+          <p class="stage-summary" id="stage-summary"></p>
+          <div class="equation" id="equation"></div>
+          <div class="result-strip" id="result-strip"></div>
+          <div class="visualization" id="visualization"></div>
+          <div class="reasoning">
+            <div><h3>Paper intention</h3><p id="paper-intention"></p></div>
+            <div><h3>Implemented rule</h3><p id="implemented-rule"></p></div>
+          </div>
+        </section>
+      </div>
+
+      <section class="scope-note" aria-label="Scope and references">
+        <strong>Model scope.</strong> This page is a deterministic, unsigned teaching example, not a live validator or evidence verifier. The real engine validates signed, checkpoint-bound ratings, applies authorized penalties, audits the reputation transition, and activates a snapshot only after finalization. PoR supplies weights; Cordial Miners still controls bonded membership, leader selection, and finality.
+        <div class="reference-links">
+          <a href="https://arxiv.org/abs/2108.03542" target="_blank" rel="noopener">Proof of Reputation paper</a>
+          <a href="https://drive.google.com/file/d/1rwORSHC1PY6N1Y4qgrkODC5P9OEuYqTL/view" target="_blank" rel="noopener">Cordial PoR design note</a>
+          <a href="https://github.com/iCog-Labs-Dev/cordial-f1r3node/tree/dev/blocklace/crates/cordial-por" target="_blank" rel="noopener">PoR implementation</a>
+          <a href="module_4.html">Weighted quorum explorer &rarr;</a>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script src="por_engine.js"></script>
+  <script src="por_engine_ui.js"></script>
+</body>
+</html>
