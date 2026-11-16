@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lean Proof Models | Cordial Miners Visualizer</title>
+  <link rel="stylesheet" href="visualizer.css" />
+  <link rel="stylesheet" href="lean_models.css" />
+</head>
+<body>
+  <main class="container">
+    <nav class="top-nav"><a href="index.html">&larr; All modules</a><span class="module-label">Module 07 / Lean models</span></nav>
+    <header class="intro">
+      <div class="eyebrow">Interactive proof explorer</div>
+      <h1>What the Lean model proves</h1>
+      <p>Explore the mathematical contracts behind the blocklace, finality, ordering, and slashing. The pictures are small examples; the linked theorems apply to modeled states satisfying their assumptions, while trace replay checks selected executions.</p>
+    </header>
+
+    <div class="lean-workspace">
+      <section class="surface" aria-labelledby="model-heading">
+        <div class="section-heading"><h2 id="model-heading">Select a model</h2><span class="muted small" id="model-count"></span></div>
+        <div class="stage-buttons model-tabs" id="model-tabs" role="group" aria-label="Choose a Lean model"></div>
+      </section>
+
+      <div class="model-layout">
+        <section class="surface diagram-panel" aria-labelledby="diagram-title">
+          <div class="section-heading"><h2 id="diagram-title"></h2><span class="model-index" id="model-index"></span></div>
+          <p class="model-intro" id="model-intro"></p>
+          <div class="model-controls" id="model-controls"></div>
+          <div class="model-diagram" id="model-diagram"></div>
+          <div class="example-outcome" id="example-outcome" aria-live="polite"></div>
+          <p class="example-detail" id="example-detail"></p>
+        </section>
+
+        <aside class="surface proof-panel" aria-labelledby="proof-heading">
+          <div class="section-heading"><h2 id="proof-heading">Proof contract</h2><span class="proof-mark">Lean 4</span></div>
+          <div class="proof-field"><span class="proof-field-label">Theorem or checker</span><strong id="proof-name"></strong></div>
+          <div class="proof-field"><span class="proof-field-label">Assumptions</span><p id="proof-assumptions"></p></div>
+          <div class="proof-field"><span class="proof-field-label">Conclusion</span><p id="proof-conclusion"></p></div>
+          <div class="proof-field"><span class="proof-field-label">Rust correspondence</span><p id="proof-rust"></p></div>
+          <div class="proof-links"><a id="lean-source" href="#" target="_blank" rel="noopener">Lean source &nearr;</a><a id="lean-extra" href="#" target="_blank" rel="noopener" hidden>Related Lean theorem &nearr;</a><a id="rust-source" href="#" target="_blank" rel="noopener">Rust source &nearr;</a></div>
+        </aside>
+      </div>
+
+      <section class="boundary-band" aria-label="Verification boundary">
+        <div><strong>Mathematical model</strong><span>Lean proves statements under explicit premises.</span></div>
+        <span class="boundary-arrow" aria-hidden="true">&rarr;</span>
+        <div><strong>Executable reference</strong><span>CMRef decisions are related to selected predicates.</span></div>
+        <span class="boundary-arrow" aria-hidden="true">&rarr;</span>
+        <div><strong>Rust trace checks</strong><span>Selected execution traces are replayed and compared.</span></div>
+      </section>
+      <section class="scope-note" aria-label="Scope and references">
+        <strong>Read the boundary carefully.</strong> This page illustrates source-backed theorems; it does not run Lean or verify every Rust execution in your browser. Finality assumes a valid blocklace, a fixed validator/weight view, honest weight above two-thirds, and the modeled approval and super-ratification rules. The prefix theorem needs valid growth with stable earlier decisions. The slashing reference takes authenticated and authorized evidence as explicit inputs. Cryptographic hash behavior is abstracted in the block model.
+        <div class="reference-links"><a href="https://github.com/iCog-Labs-Dev/cordial-f1r3node/tree/dev/lean" target="_blank" rel="noopener">Lean project</a><a href="https://github.com/iCog-Labs-Dev/cordial-f1r3node/blob/dev/docs/lean/10-executable-slashing-reference.md" target="_blank" rel="noopener">Slashing reference notes</a><a href="module_6.html">PoR engine &rarr;</a></div>
+      </section>
+    </div>
+  </main>
+  <script src="lean_examples.js"></script>
+  <script src="lean_models_ui.js"></script>
+</body>
+</html>
