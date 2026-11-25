@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cordial Miners — Predecessor Selection & Local Views</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: #0f1623;
+      --surface-alt: #162032;
+      --border: #263349;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --genesis: #a855f7;
+      --tip: #10b981;
+      --rust-only: #f59e0b;
+      --paper-only: #38bdf8;
+      --referenced: #64748b;
+      --amber: #f59e0b;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1340px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Top Nav */
+    .top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 0.84rem;
+    }
+
+    .top-nav a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .top-nav a:hover { text-decoration: underline; }
+
+    /* Header */
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .module-tag {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--tip);
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    h1 { font-size: 1.42rem; font-weight: 750; letter-spacing: -0.02em; }
+    .subtitle { color: var(--muted); font-size: 0.91rem; margin-top: 2px; }
+
+    .params-badge {
+      font-family: var(--mono);
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    /* Stepper */
+    .control-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .control-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .step-counter {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: block;
+    }
+
+    .step-title { font-size: 1.08rem; font-weight: 700; }
+
+    .btn-group { display: flex; gap: 10px; }
+
+    button {
+      background: var(--surface-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+    button.primary {
+      background: var(--accent);
+      color: #090d16;
+      border-color: var(--accent);
+    }
+
+    button.primary:hover:not(:disabled) { background: #7dd3fc; color: #090d16; }
+    button:disabled { opacity: 0.38; cursor: not-allowed; }
+
+    .step-pills {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .step-pill {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .step-pill.done {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: rgba(56, 189, 248, 0.06);
+    }
+
+    .step-pill.active {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.18);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .step-pill span { display: block; }
+    .step-pill .r-tag { font-family: var(--mono); font-size: 0.72rem; font-weight: 700; color: var(--accent); }
+    .step-pill .r-name { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      padding: 2px 4px;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .line-solid { width: 20px; border-top: 2.5px solid var(--accent); display: inline-block; }
+    .line-dashed { width: 20px; border-top: 2px dashed var(--genesis); display: inline-block; }
+
+    /* DAG Canvas */
+    .dag-viewport {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow-x: auto;
+      padding: 10px;
+    }
+
+    svg {
+      display: block;
+      width: 1180px;
+      height: 520px;
+    }
+
+    .lane-band { fill: rgba(22, 32, 50, 0.45); rx: 10; }
+
+    .edge {
+      fill: none;
+      stroke: #475569;
+      stroke-width: 1.7;
+      opacity: 0.35;
+      transition: opacity 0.15s ease, stroke 0.15s ease, stroke-width 0.15s ease;
+    }
+
+    .edge.active-attach {
+      stroke: var(--tip);
+      stroke-width: 2.4;
+      opacity: 0.85;
+    }
+
+    .edge.direct { stroke: var(--accent); stroke-width: 3.2; opacity: 1; }
+    .edge.transitive { stroke: var(--genesis); stroke-width: 2.2; stroke-dasharray: 6 4; opacity: 0.92; }
+    .edge.dimmed { opacity: 0.06; }
+
+    .node-group { cursor: pointer; transition: opacity 0.15s ease; }
+    .node-group.dimmed { opacity: 0.2; }
+    .node-card { rx: 10; ry: 10; stroke-width: 2; transition: filter 0.15s ease; }
+
+    .node-group:hover .node-card,
+    .node-group.hovered .node-card {
+      filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.75));
+    }
+
+    /* Live predecessor sets */
+    .tips-bar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+
+    .tips-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .tips-row + .tips-row {
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+    }
+
+    .tips-row.paper .tips-label { color: var(--accent); }
+    .tips-row.paper .tip-chip {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.45);
+      color: #7dd3fc;
+    }
+
+    .tips-left {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tips-label {
+      font-family: var(--mono);
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #34d399;
+    }
+
+    .tip-chip {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(16, 185, 129, 0.5);
+      color: #6ee7b7;
+    }
+
+    .tips-note {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    /* Bottom Inspector + Local View Deep Dive */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    @media (max-width: 960px) {
+      .bottom-grid { grid-template-columns: 1fr; }
+      .step-pills { grid-template-columns: 1fr; }
+    }
+
+    .panel-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .panel-card h3 {
+      font-size: 1rem;
+      color: var(--accent);
+    }
+
+    .panel-card p {
+      font-size: 0.91rem;
+      color: #e2e8f0;
+    }
+
+    .meta-table {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.84rem;
+    }
+
+    .meta-table strong {
+      color: var(--muted);
+      display: inline-block;
+      min-width: 165px;
+    }
+
+    .faq-box {
+      background: rgba(245, 158, 11, 0.06);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .faq-box h4 {
+      font-size: 0.92rem;
+      color: #fbbf24;
+    }
+
+    .faq-list {
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.87rem;
+      color: #cbd5e1;
+    }
+
+    .faq-list strong { color: var(--text); }
+    code {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      background: rgba(15, 23, 42, 0.8);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #7dd3fc;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav class="top-nav">
+      <a href="../index.html">← Protocol Index</a>
+      <span style="color:#94a3b8; font-weight:600;">Blocklace Mechanics · Predecessor Selection & Local Views</span>
+      <a href="../module_1.html">Module 01: Finality →</a>
+    </nav>
+
+    <header>
+      <div>
+        <span class="module-tag">Blocklace Construction · Paper vs Rust Selector</span>
+        <h1>Predecessor Selection in a Local Blocklace</h1>
+        <p class="subtitle">Follow Miner 1's local blocklace. Compare the paper's tips of the completed-round prefix with the latest-per-validator predecessors selected by our Rust helper.</p>
+      </div>
+      <span class="params-badge">Perspective: Miner 1 Local View (B₁) · Quorum &gt; (n+f)/2 = 3</span>
+    </header>
+
+    <section class="control-panel">
+      <div class="control-header">
+        <div>
+          <span class="step-counter" id="stepCounter">Step 1 of 3</span>
+          <h2 class="step-title" id="stepTitle">Step 1: Four Round 1 blocks are visible</h2>
+        </div>
+        <div class="btn-group">
+          <button id="prevBtn">← Previous</button>
+          <button id="nextBtn" class="primary">Next Step →</button>
+        </div>
+      </div>
+      <div class="step-pills" id="stepPills"></div>
+    </section>
+
+    <div class="legend">
+      <span class="legend-item"><i class="dot" style="background:var(--genesis)"></i>Genesis (b₀)</span>
+      <span class="legend-item"><i class="dot" style="background:var(--tip)"></i>Paper tip + Rust predecessor</span>
+      <span class="legend-item"><i class="dot" style="background:var(--paper-only)"></i>Paper tip only</span>
+      <span class="legend-item"><i class="dot" style="background:var(--rust-only)"></i>Rust predecessor, not a paper tip</span>
+      <span class="legend-item"><i class="dot" style="background:var(--referenced)"></i>Earlier block</span>
+      <span class="legend-item"><i class="line-solid"></i>Hover: Direct Pointers (Ack)</span>
+      <span class="legend-item"><i class="line-dashed"></i>Hover: Causal Cone (Obs)</span>
+    </div>
+
+    <div class="dag-viewport">
+      <svg id="dagSvg" viewBox="0 0 1180 520"></svg>
+    </div>
+
+    <section class="tips-bar" aria-label="Predecessor selection comparison">
+      <div class="tips-row paper">
+        <div class="tips-left">
+          <span class="tips-label">Paper create_block(d): tips of prefix(d) =</span>
+          <div id="paperTipsChips" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+        </div>
+        <span class="tips-note" id="paperTipsSummary"></span>
+      </div>
+      <div class="tips-row">
+        <div class="tips-left">
+          <span class="tips-label">Rust predecessors for Miner 1's next block =</span>
+          <div id="rustTipsChips" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+        </div>
+        <span class="tips-note" id="rustTipsSummary"></span>
+      </div>
+    </section>
+
+    <section class="bottom-grid">
+      <div class="panel-card">
+        <h3 id="inspTitle">Step Narrative & Block Inspector</h3>
+        <p id="inspDesc"></p>
+        <div class="meta-table">
+          <div><strong>Block Position (Lane):</strong> <span id="inspLane">Creator's own miner row</span></div>
+          <div><strong>Direct Pointers (Ack):</strong> <span id="inspParents">Hover any block</span></div>
+          <div><strong>Incoming Children:</strong> <span id="inspInDeg">Hover any block</span></div>
+          <div><strong>Causal Cone (Obs):</strong> <span id="inspAncestors">Hover any block</span></div>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <div class="faq-box">
+          <h4>What does this example demonstrate?</h4>
+          <ol class="faq-list">
+            <li>
+              <strong>Local visibility:</strong> With four validators and one tolerated fault, three distinct validators meet the acknowledgement threshold. Miner 3 could build a Round 2 candidate from <code>M2·R1</code>, <code>M3·R1</code>, and <code>M4·R1</code> before receiving <code>M1·R1</code>. A scheduler still decides when to propose.
+            </li>
+            <li>
+              <strong>Paper versus Rust:</strong> The paper selects maximal tips from the completed-round prefix of the local blocklace. Our Rust selector takes the latest block from each bonded, non-equivocating validator, even when another validator's block already references it. After M1·R2, only Round 1 is complete, so the paper's depth-1 prefix selects Round 1 blocks while Rust selects M1·R2.
+            </li>
+            <li>
+              <strong>Equivocation:</strong> This scene has only honest chains. In Rust strict mode, known equivocators are omitted; the default compatibility mode may also reference unseen conflicting branches to retain evidence. Those cases are outside this three-step example.
+            </li>
+          </ol>
+          <p><a href="https://arxiv.org/pdf/2205.09174" target="_blank" rel="noopener" style="color:var(--accent);">Paper: Definition 19 and Algorithm 1, create_block(d)</a></p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const COLORS = {
+      genesis: "#a855f7",
+      tip: "#10b981",
+      paperOnly: "#38bdf8",
+      rustOnly: "#f59e0b",
+      referenced: "#64748b"
+    };
+
+    const STEPS = [
+      {
+        pillTag: "Step 1",
+        pillName: "4 Round 1 Blocks",
+        title: "Step 1: Four Round 1 blocks are visible to Miner 1",
+        desc: "All four bonded validators have a Round 1 block pointing to the shared genesis. Round 1 is complete. Each Round 1 block is both a paper tip of prefix(1) and its validator's latest block, so both selectors choose the same four predecessors."
+      },
+      {
+        pillTag: "Step 2",
+        pillName: "M1·R2 References 4",
+        title: "Step 2: M1·R2 references all four visible Round 1 blocks",
+        desc: "Only one Round 2 block exists, so the completed paper round is still 1: create_block(1) sees the four Round 1 tips in prefix(1). Rust sees the full local blocklace and selects M1·R2 plus the latest blocks from Miners 2, 3, and 4."
+      },
+      {
+        pillTag: "Step 3",
+        pillName: "Peer R2 Blocks Arrive",
+        title: "Step 3: Miner 1 receives M2·R2 and M3·R2",
+        desc: "Miners 2 and 3 built Round 2 blocks from different three-validator local views. Now three Round 2 validators are visible, completing Round 2. The paper's prefix(2) has three maximal Round 2 tips. Rust selects those three plus M4·R1, which remains Miner 4's latest block."
+      }
+    ];
+
+    function getNodesForStep(step) {
+      return [
+        {
+          id: "b0", minStep: 0, col: 0, miner: 1.5,
+          code: "Genesis b₀", parents: [],
+          desc: "Shared deterministic root. Referenced by all 4 Round 1 blocks."
+        },
+        // Round 1
+        {
+          id: "m1_r1", minStep: 0, col: 1, miner: 0,
+          code: "M1 · R1", parents: ["b0"],
+          desc: "Miner 1's Round 1 block. Once M1·R2 arrives, this is no longer Miner 1's latest block."
+        },
+        {
+          id: "m2_r1", minStep: 0, col: 1, miner: 1,
+          code: "M2 · R1", parents: ["b0"],
+          desc: "Miner 2's Round 1 block. Rust keeps selecting it until Miner 2's later block arrives, even if another miner has referenced it."
+        },
+        {
+          id: "m3_r1", minStep: 0, col: 1, miner: 2,
+          code: "M3 · R1", parents: ["b0"],
+          desc: "Miner 3's Round 1 block. Rust keeps selecting it until Miner 3's later block arrives."
+        },
+        {
+          id: "m4_r1", minStep: 0, col: 1, miner: 3,
+          code: "M4 · R1", parents: ["b0"],
+          desc: "Miner 4's latest block throughout this scene. It remains a Rust predecessor after other miners reference it."
+        },
+        // Round 2
+        {
+          id: "m1_r2", minStep: 1, col: 2, miner: 0,
+          code: "M1 · R2", parents: ["m1_r1", "m2_r1", "m3_r1", "m4_r1"],
+          desc: "Miner 1's Round 2 block references the four visible Round 1 blocks. It becomes Miner 1's latest block and observes all four parents."
+        },
+        {
+          id: "m2_r2", minStep: 2, col: 2, miner: 1,
+          code: "M2 · R2", parents: ["m1_r1", "m2_r1", "m3_r1"],
+          desc: "Miner 2's Round 2 block reflects a local view with three Round 1 validators. It did not yet see M4·R1."
+        },
+        {
+          id: "m3_r2", minStep: 2, col: 2, miner: 2,
+          code: "M3 · R2", parents: ["m2_r1", "m3_r1", "m4_r1"],
+          desc: "Miner 3's Round 2 block reflects a different three-validator local view. It did not yet see M1·R1."
+        }
+      ].filter(n => n.minStep <= step);
+    }
+
+    let currentStep = 0;
+    let hoveredId = null;
+
+    const svg = document.getElementById("dagSvg");
+    const pillsEl = document.getElementById("stepPills");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+
+    function getAncestors(id, map, set = new Set()) {
+      const node = map.get(id);
+      if (!node) return set;
+      for (const pid of node.parents) {
+        if (!set.has(pid)) {
+          set.add(pid);
+          getAncestors(pid, map, set);
+        }
+      }
+      return set;
+    }
+
+    function getLocalView(step) {
+      const nodes = getNodesForStep(step);
+      const nodeMap = new Map(nodes.map(node => [node.id, node]));
+      const childCounts = new Map(nodes.map(node => [node.id, 0]));
+      const depths = new Map();
+
+      function depthOf(node) {
+        if (!depths.has(node.id)) {
+          depths.set(node.id, node.parents.length === 0 ? 0 :
+            1 + Math.max(...node.parents.map(id => depthOf(nodeMap.get(id)))));
+        }
+        return depths.get(node.id);
+      }
+
+      const creatorsByRound = new Map();
+      for (const node of nodes) {
+        const round = depthOf(node);
+        if (node.id !== "b0") {
+          if (!creatorsByRound.has(round)) creatorsByRound.set(round, new Set());
+          creatorsByRound.get(round).add(node.miner);
+        }
+      }
+      const completedDepth = Math.max(...[...creatorsByRound]
+        .filter(([, creators]) => creators.size >= 3)
+        .map(([round]) => round));
+      const prefixIds = new Set(nodes
+        .filter(node => depths.get(node.id) <= completedDepth)
+        .map(node => node.id));
+      const prefixChildCounts = new Map([...prefixIds].map(id => [id, 0]));
+
+      for (const node of nodes) {
+        for (const parentId of node.parents) {
+          if (childCounts.has(parentId)) {
+            childCounts.set(parentId, childCounts.get(parentId) + 1);
+          }
+          if (prefixIds.has(node.id) && prefixIds.has(parentId)) {
+            prefixChildCounts.set(parentId, prefixChildCounts.get(parentId) + 1);
+          }
+        }
+      }
+
+      const blocks = nodes.filter(node => node.id !== "b0");
+      const paperTips = blocks
+        .filter(node => prefixIds.has(node.id) && prefixChildCounts.get(node.id) === 0)
+        .sort((a, b) => a.miner - b.miner);
+      const rustPredecessors = blocks
+        .filter(node => !blocks.some(other =>
+          other.miner === node.miner && other.id !== node.id &&
+          getAncestors(other.id, nodeMap).has(node.id)
+        ))
+        .sort((a, b) => a.miner - b.miner);
+
+      return { nodes, nodeMap, childCounts, completedDepth, paperTips, rustPredecessors };
+    }
+
+    function renderTipsBar() {
+      const { completedDepth, paperTips, rustPredecessors } = getLocalView(currentStep);
+      document.getElementById("paperTipsChips").innerHTML = paperTips
+        .map(node => `<span class="tip-chip">${node.code}</span>`).join("");
+      document.getElementById("rustTipsChips").innerHTML = rustPredecessors
+        .map(node => `<span class="tip-chip">${node.code}</span>`).join("");
+      document.getElementById("paperTipsSummary").textContent = `d = ${completedDepth}; ${paperTips.length} prefix tip(s)`;
+      document.getElementById("rustTipsSummary").textContent = `${rustPredecessors.length} bonded validator(s)`;
+    }
+
+    function renderControls() {
+      const s = STEPS[currentStep];
+      document.getElementById("stepCounter").textContent = `Step ${currentStep + 1} of ${STEPS.length}`;
+      document.getElementById("stepTitle").textContent = s.title;
+      document.getElementById("inspDesc").textContent = s.desc;
+
+      prevBtn.disabled = currentStep === 0;
+      nextBtn.disabled = currentStep === STEPS.length - 1;
+
+      pillsEl.innerHTML = "";
+      STEPS.forEach((step, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "step-pill" + (idx === currentStep ? " active" : idx < currentStep ? " done" : "");
+        btn.innerHTML = `<span class="r-tag">${step.pillTag}</span><span class="r-name">${step.pillName}</span>`;
+        btn.onclick = () => {
+          currentStep = idx;
+          hoveredId = null;
+          render();
+        };
+        pillsEl.appendChild(btn);
+      });
+    }
+
+    function renderDAG() {
+      svg.innerHTML = "";
+
+      const leftPad = 175;
+      const colGap = 380;
+      const topPad = 92;
+      const laneHeight = 108;
+      const boxW = 166;
+      const boxH = 52;
+
+      // Miner swimlanes
+      for (let m = 0; m < 4; m++) {
+        const y = topPad + m * laneHeight;
+        const lane = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        lane.setAttribute("x", 12);
+        lane.setAttribute("y", y - 43);
+        lane.setAttribute("width", 1156);
+        lane.setAttribute("height", 86);
+        lane.setAttribute("class", "lane-band");
+        svg.appendChild(lane);
+
+        const mLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        mLabel.setAttribute("x", 28);
+        mLabel.setAttribute("y", y + 4);
+        mLabel.setAttribute("fill", m === 0 ? "#38bdf8" : "#94a3b8");
+        mLabel.setAttribute("font-size", "13");
+        mLabel.setAttribute("font-weight", "700");
+        mLabel.textContent = m === 0 ? "Miner 1 (Local)" : `Miner ${m + 1}`;
+        svg.appendChild(mLabel);
+      }
+
+      // Column headers
+      const headers = [
+        "Round 0 · Genesis",
+        "Round 1 · Validator Blocks",
+        "Round 2 · Later Blocks"
+      ];
+      headers.forEach((label, idx) => {
+        const x = leftPad + idx * colGap;
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.setAttribute("x", x);
+        txt.setAttribute("y", 28);
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("fill", "#e2e8f0");
+        txt.setAttribute("font-size", "12.5");
+        txt.setAttribute("font-weight", "700");
+        txt.textContent = label;
+        svg.appendChild(txt);
+      });
+
+      const {
+        nodes: visibleNodes, nodeMap, childCounts, paperTips, rustPredecessors
+      } = getLocalView(currentStep);
+      const paperIds = new Set(paperTips.map(node => node.id));
+      const rustIds = new Set(rustPredecessors.map(node => node.id));
+
+      visibleNodes.forEach(n => {
+        n.x = leftPad + n.col * colGap;
+        n.y = topPad + n.miner * laneHeight;
+        n.inDeg = childCounts.get(n.id);
+        n.type = n.id === "b0" ? "genesis" : paperIds.has(n.id) && rustIds.has(n.id) ? "tip" : paperIds.has(n.id) ? "paperOnly" : rustIds.has(n.id) ? "rustOnly" : "referenced";
+        n.role = n.id === "b0" ? "Shared root" : paperIds.has(n.id) && rustIds.has(n.id) ? "Paper + Rust" : paperIds.has(n.id) ? "Paper selected" : rustIds.has(n.id) ? "Rust selected" : "Earlier block";
+      });
+
+      const hoveredNode = hoveredId ? nodeMap.get(hoveredId) : null;
+      const directParents = hoveredNode ? new Set(hoveredNode.parents) : new Set();
+      const ancestors = hoveredNode ? getAncestors(hoveredNode.id, nodeMap) : new Set();
+
+      // Edges
+      visibleNodes.forEach(child => {
+        child.parents.forEach(pid => {
+          const parent = nodeMap.get(pid);
+          if (!parent) return;
+
+          const startX = child.x - boxW / 2;
+          const startY = child.y;
+          const endX = parent.x + boxW / 2;
+          const endY = parent.y;
+          const bend = (startX - endX) * 0.45;
+
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("d", `M ${startX} ${startY} C ${startX - bend} ${startY}, ${endX + bend} ${endY}, ${endX} ${endY}`);
+
+          let cls = "edge";
+          if (!hoveredNode) {
+            if (child.id === "m1_r2" && currentStep === 1) cls += " active-attach";
+          } else {
+            if (child.id === hoveredNode.id && directParents.has(parent.id)) {
+              cls += " direct";
+            } else if (ancestors.has(child.id) && ancestors.has(parent.id)) {
+              cls += " transitive";
+            } else {
+              cls += " dimmed";
+            }
+          }
+          path.setAttribute("class", cls);
+          svg.appendChild(path);
+        });
+      });
+
+      // Nodes
+      visibleNodes.forEach(n => {
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        let cls = "node-group";
+        if (hoveredNode) {
+          if (n.id === hoveredNode.id) cls += " hovered";
+          else if (!ancestors.has(n.id)) cls += " dimmed";
+        }
+        g.setAttribute("class", cls);
+
+        const color = COLORS[n.type] || COLORS.referenced;
+
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", n.x - boxW / 2);
+        rect.setAttribute("y", n.y - boxH / 2);
+        rect.setAttribute("width", boxW);
+        rect.setAttribute("height", boxH);
+        rect.setAttribute("fill", "#090d16");
+        rect.setAttribute("stroke", color);
+        rect.setAttribute("class", "node-card");
+
+        const codeText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        codeText.setAttribute("x", n.x);
+        codeText.setAttribute("y", n.y - 6);
+        codeText.setAttribute("text-anchor", "middle");
+        codeText.setAttribute("fill", "#f1f5f9");
+        codeText.setAttribute("font-size", "12.5");
+        codeText.setAttribute("font-weight", "700");
+        codeText.textContent = n.code;
+
+        const roleText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        roleText.setAttribute("x", n.x);
+        roleText.setAttribute("y", n.y + 14);
+        roleText.setAttribute("text-anchor", "middle");
+        roleText.setAttribute("fill", color);
+        roleText.setAttribute("font-size", "10.8");
+        roleText.setAttribute("font-weight", "600");
+        roleText.textContent = n.role;
+
+        g.appendChild(rect);
+        g.appendChild(codeText);
+        g.appendChild(roleText);
+
+        g.addEventListener("mouseenter", () => {
+          hoveredId = n.id;
+          const anc = getAncestors(n.id, nodeMap);
+          document.getElementById("inspTitle").textContent = `${n.code} — ${n.role}`;
+          document.getElementById("inspDesc").textContent = n.desc;
+          document.getElementById("inspLane").textContent = n.id === "b0" ? "Shared Root (All Miners)" : `Miner ${n.miner + 1} Lane`;
+          document.getElementById("inspParents").textContent = n.parents.length
+            ? `${n.parents.length} pointer(s): ${n.parents.map(pid => nodeMap.get(pid)?.code || pid).join(", ")}`
+            : "None (Root Genesis)";
+          document.getElementById("inspInDeg").textContent = `${n.inDeg} child pointer(s); ${n.role}`;
+          document.getElementById("inspAncestors").textContent = anc.size
+            ? Array.from(anc).map(aid => nodeMap.get(aid)?.code || aid).join(" ← ")
+            : "None";
+          renderDAG();
+        });
+
+        g.addEventListener("mouseleave", () => {
+          hoveredId = null;
+          const s = STEPS[currentStep];
+          document.getElementById("inspTitle").textContent = "Step Narrative & Block Inspector";
+          document.getElementById("inspDesc").textContent = s.desc;
+          document.getElementById("inspLane").textContent = "Creator's own miner row";
+          document.getElementById("inspParents").textContent = "Hover any block";
+          document.getElementById("inspInDeg").textContent = "Hover any block";
+          document.getElementById("inspAncestors").textContent = "Hover any block";
+          renderDAG();
+        });
+
+        svg.appendChild(g);
+      });
+    }
+
+    function render() {
+      renderControls();
+      renderTipsBar();
+      renderDAG();
+    }
+
+    prevBtn.onclick = () => {
+      if (currentStep > 0) {
+        currentStep--;
+        hoveredId = null;
+        render();
+      }
+    };
+
+    nextBtn.onclick = () => {
+      if (currentStep < STEPS.length - 1) {
+        currentStep++;
+        hoveredId = null;
+        render();
+      }
+    };
+
+    render();
+  </script>
+</body>
+</html>
